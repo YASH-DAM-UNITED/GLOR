@@ -250,7 +250,7 @@ st.markdown(f"""
             position: absolute;
             width: 26px;
             height: 16px;
-            background-color: #FFD700;
+            background-color: #D4AF37;
             border-radius: 50%;
             transform: rotate(-30deg);
             top: 66px;
