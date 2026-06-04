@@ -140,7 +140,7 @@ div.stButton > button {
 }
 div.stButton > button:hover {
     transform: scale(1.05) translateY(-2px);
-    background: #e14c48 !important; 
+    background: #e3a857 !important; 
     box-shadow: 0 10px 20px rgba(247, 93, 89, 0.35) !important;
     letter-spacing: 4px !important;
 }
