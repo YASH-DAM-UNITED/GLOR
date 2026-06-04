@@ -254,7 +254,7 @@ st.markdown(f"""
             border-radius: 50%;
             transform: rotate(-30deg);
             top: 66px;
-            left: -8px;
+            left: 8px;
             z-index: 1;
         "></span>
         <span class="registered" style="position: relative; z-index: 2; margin-left: 0px;">®</span>
