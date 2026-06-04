@@ -32,12 +32,7 @@ T = texts[st.session_state.lang]
 if "lang" not in st.session_state:
     st.session_state.lang = "en"
 
-# 3. Simple Toggle in the Sidebar (or top of page)
-lang_col1, lang_col2 = st.columns([10, 1])
-with lang_col2:
-    if st.button("🌐"):
-        st.session_state.lang = "ar" if st.session_state.lang == "en" else "en"
-        st.rerun()
+
 
 # 4. Helper function to get text
 def _(key):
