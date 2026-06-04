@@ -93,7 +93,7 @@ h1 { margin-bottom: 0px !important; }
 .registered {
     font-size: 26px;              
     font-weight: 900;
-    color: #8B5CF6 !important;    
+    color: #FFDD43 !important;    
     position: relative;
     top: -39px;                   
     left: 8px;
@@ -250,7 +250,7 @@ st.markdown(f"""
             position: absolute;
             width: 26px;
             height: 16px;
-            background-color: #8B5CF6;
+            background-color: #FFDD43;
             border-radius: 50%;
             transform: rotate(-30deg);
             top: 66px;
