@@ -93,7 +93,7 @@ h1 { margin-bottom: 0px !important; }
 .registered {
     font-size: 26px;              
     font-weight: 900;
-    color: #FFDD43 !important;    
+    color: #FFD700 !important;    
     position: relative;
     top: -39px;                   
     left: 8px;
@@ -239,7 +239,7 @@ st.markdown("""
 # =========================================================
 # ANIMATED HEADER & UI
 # =========================================================
-st.markdown("<div class='animate-text delay-1' style='text-align: center;'><span style='background: rgba(59, 33, 230, 0.08); color: #3B21E6; padding: 6px 16px; border-radius: 100px; font-size: 12px; font-weight: 700; letter-spacing: 1px;'>INTERNAL STAFF NETWORK</span></div>", unsafe_allow_html=True)
+st.markdown("<div class='animate-text delay-1' style='text-align: center;'><span style='background: rgba(59, 33, 230, 0.08); color: #FFD700; padding: 6px 16px; border-radius: 100px; font-size: 12px; font-weight: 700; letter-spacing: 1px;'>INTERNAL STAFF NETWORK</span></div>", unsafe_allow_html=True)
 
 # Wrapped classes here to target font alterations safely across viewports
 st.markdown(f"""
@@ -250,7 +250,7 @@ st.markdown(f"""
             position: absolute;
             width: 26px;
             height: 16px;
-            background-color: #FFDD43;
+            background-color: #FFD700;
             border-radius: 50%;
             transform: rotate(-30deg);
             top: 66px;
