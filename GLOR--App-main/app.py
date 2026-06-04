@@ -93,7 +93,7 @@ h1 { margin-bottom: 0px !important; }
 .registered {
     font-size: 26px;              
     font-weight: 900;
-    color: #FFD700 !important;    
+    color: #D4AF37 !important;    
     position: relative;
     top: -39px;                   
     left: 8px;
