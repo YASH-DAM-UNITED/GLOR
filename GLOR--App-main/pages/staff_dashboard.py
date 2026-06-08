@@ -11,9 +11,6 @@ from pathlib import Path
 import pandas as pd
 import time
 
-
-
-MASTER_SHEET_ID = "1fKOtqdN_QlVNuHQujSlBKPJDk3n19zy1A4S1DwNCQro"
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(layout="wide", page_title="BART Staff Dashboard")
 
@@ -112,7 +109,7 @@ def show_transfer_dialog(transfer):
         st.rerun()
 
 def update_transfer_status(transfer_id, status):
-    sheet = st.session_state.gs_client.open_by_key(MASTER_SHEET_ID).worksheet("Transfers")
+    sheet = st.session_state.gs_client.open("MASTERBRANCHSHEET").worksheet("Transfers")
     cell = sheet.find(transfer_id)
     if cell:
         # Col 7 is the Status column
@@ -120,7 +117,7 @@ def update_transfer_status(transfer_id, status):
         st.success(f"Transfer {transfer_id} marked as {status}")
 
 def check_for_pending_transfers():
-    sheet = st.session_state.gs_client.open_by_key(MASTER_SHEET_ID).worksheet("Transfers")
+    sheet = st.session_state.gs_client.open("MASTERBRANCHSHEET").worksheet("Transfers")
     records = sheet.get_all_records()
     my_branch = st.session_state.selected_branch
     
@@ -158,56 +155,36 @@ def get_fresh_client():
 # Ensure client exists and is fresh
 if "gs_client" not in st.session_state:
     st.session_state.gs_client = get_fresh_client()
-
-
-
-st.write("--- DEBUGGING CONNECTION ---")
-try:
-    client = st.session_state.gs_client
-    files = client.list_spreadsheet_files()
-    st.write("Number of files visible to Service Account:", len(files))
-    found = any(f.get('id') == MASTER_SHEET_ID for f in files)
-    st.write(f"Is MASTER_SHEET_ID in visible list? {found}")
-    if not found:
-        st.warning("The Service Account cannot see the file. It is NOT shared correctly.")
-except Exception as e:
-    st.error(f"Authentication Failed: {e}")
 # ---------------- LOAD BRANCHES & PASSWORDS (CONSOLIDATED & CACHED) ----------------
-# 1. Define this once at the top of your script (under your imports)
-
-
-# 2. Use this complete block for loading data
-# --- Ensure this is defined at the top of your script ---
-
-
-@st.cache_data(ttl=3000)
+@st.cache_data(ttl=3000)  # Use a numeric TTL (seconds) instead of None
 def load_master_branch_data():
+    # Access the client from session state instead of a global 'client' variable
     client = st.session_state.gs_client 
-    try:
-        spreadsheet = client.open_by_key(MASTER_SHEET_ID)
+    sheet = client.open("MASTERBRANCHSHEET").sheet1
+    records = sheet.get_all_records()
+    
+    # Pre-map a password dictionary
+    passwords = {"admin": load_admin()["admin"]}
+    for row in records:
+        key = f"{row['BranchCode']} - {row['BranchName']}"
+        passwords[key] = row.get("Password", "")
         
-        # Check if we can get basic metadata
-        title = spreadsheet.title
-        
-        # Access the first sheet
-        sheet = spreadsheet.sheet1
-        
-        # Attempt a small read
-        records = sheet.get_all_records()
-        
-        return records, {"admin": "admin123"} # Simplified for testing
-        
-    except Exception as e:
-        # If it hits here, we know exactly where it failed
-        st.error(f"Failed at: {type(e).__name__} - {str(e)}")
-        return [], {}
-
-# 3. Initialize your branch data
+    return records, passwords
+# Fetch data securely and instantly from memory
 branch_data, passwords = load_master_branch_data()
-branch_options = ["-- Select Branch --"] + [f"{b['BranchCode']} - {b['BranchName']}" for b in branch_data]
+branches = [f"{b['BranchCode']} - {b['BranchName']}" for b in branch_data]
+
+# ONLY set this if it isn't already there to avoid unnecessary processing
+if "branch_list" not in st.session_state:
+    st.session_state.branch_list = branches
+
+# Fetch data securely and instantly from memory
+branch_data, passwords = load_master_branch_data()
+branches = [f"{b['BranchCode']} - {b['BranchName']}" for b in branch_data]
+branch_options = ["-- Select Branch --"] + branches
 
 def save_passwords(branch_key, new_password):
-    sheet = client.open_by_key(MASTER_SHEET_ID).sheet1
+    sheet = client.open("MASTERBRANCHSHEET").sheet1
     records = sheet.get_all_records()
 
     for idx, row in enumerate(records, start=2):
@@ -354,11 +331,6 @@ if st.session_state.authenticated:
     
 
 
-
-
-    
-
-
 # ---------------- STOCK VIEW SECTION ----------------
 # Only execute if the toggle is active AND we have a valid branch loaded
 if st.session_state.get("show_stock_view", False):
@@ -434,7 +406,7 @@ if st.session_state.get("show_stock_view", False):
 # --- 1. Notification Check (Run on load) ---
 def check_notifications():
     # Only hit the API for the notifications tab
-    sheet = client.open_by_key(MASTER_SHEET_ID).worksheet("Notifications")
+    sheet = client.open("MASTERBRANCHSHEET").worksheet("Notifications")
     records = sheet.get_all_records()
     
     my_code = st.session_state.selected_branch.split(" - ")[0]
