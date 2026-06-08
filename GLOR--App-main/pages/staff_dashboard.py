@@ -11,13 +11,6 @@ from pathlib import Path
 import pandas as pd
 import time
 
-
-from google.oauth2.service_account import Credentials
-import gspread
-import streamlit as st
-
-
-
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(layout="wide", page_title="BART Staff Dashboard")
 
@@ -151,11 +144,11 @@ check_timeout()
 # ---------------- SELF-HEALING GOOGLE CONNECTION ----------------
 def get_fresh_client():
     creds_dict = st.secrets["GOOGLE_CREDS_JSON"]
-    # These two scopes are mandatory for full gspread functionality
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
     ]
+    # Always create a fresh credential object to avoid stale token issues
     creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     return gspread.authorize(creds)
 
@@ -163,30 +156,16 @@ def get_fresh_client():
 if "gs_client" not in st.session_state:
     st.session_state.gs_client = get_fresh_client()
 # ---------------- LOAD BRANCHES & PASSWORDS (CONSOLIDATED & CACHED) ----------------
-# Place this at the very top of your file
-MASTER_SHEET_ID = "1fKOtqdN_QlVNuHQujSlBKPJDk3n19zy1A4S1DwNCQro" 
-
-@st.cache_data(ttl=3000)
+@st.cache_data(ttl=3000)  # Use a numeric TTL (seconds) instead of None
 def load_master_branch_data():
-    """
-    Fetches master branch list and maps passwords.
-    Uses open_by_key to bypass Google Drive search API limitations.
-    """
-    # Access the client from session state
+    # Access the client from session state instead of a global 'client' variable
     client = st.session_state.gs_client 
-    
-    # Use open_by_key for direct access
-    spreadsheet = client.open_by_key(MASTER_SHEET_ID)
-    sheet = spreadsheet.sheet1
+    sheet = client.open("MASTERBRANCHSHEET").sheet1
     records = sheet.get_all_records()
     
     # Pre-map a password dictionary
-    # We include 'admin' from your local JSON, then add branches from the sheet
-    admin_data = load_admin() 
-    passwords = {"admin": admin_data.get("admin", "admin123")}
-    
+    passwords = {"admin": load_admin()["admin"]}
     for row in records:
-        # Construct the same key used in your selectbox
         key = f"{row['BranchCode']} - {row['BranchName']}"
         passwords[key] = row.get("Password", "")
         
@@ -200,6 +179,8 @@ if "branch_list" not in st.session_state:
     st.session_state.branch_list = branches
 
 # Fetch data securely and instantly from memory
+branch_data, passwords = load_master_branch_data()
+branches = [f"{b['BranchCode']} - {b['BranchName']}" for b in branch_data]
 branch_options = ["-- Select Branch --"] + branches
 
 def save_passwords(branch_key, new_password):
@@ -346,6 +327,11 @@ if st.session_state.authenticated:
         st.session_state.show_stock_view = not st.session_state.get("show_stock_view", False)
         refresh_activity()
         st.rerun()
+
+    
+
+
+
 
     
 
