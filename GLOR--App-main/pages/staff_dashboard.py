@@ -14,7 +14,6 @@ import time
 
 
 # --- GOOGLE CLIENT INITIALIZATION ---
-# This block ensures the client exists even if this page is loaded directly
 if "gs_client" not in st.session_state:
     try:
         from google.oauth2.service_account import Credentials
@@ -176,23 +175,27 @@ def get_fresh_client():
 if "gs_client" not in st.session_state:
     st.session_state.gs_client = get_fresh_client()
 
-@st.cache_data(ttl=60) # Reduced TTL for testing
+@st.cache_data(ttl=3000)
 def load_master_branch_data():
     try:
         client = st.session_state.gs_client
-        # Double check: does client exist?
-        if client is None:
-            st.error("Client is None")
-            st.stop()
-            
+        # Using the hardcoded ID for stability
         MASTER_SHEET_ID = "1ldPuDKDljUeAEBFuDBXHGuYePlzJinhdlG4cCEJkWZU"
         sheet = client.open_by_key(MASTER_SHEET_ID).sheet1
-        return sheet.get_all_records(), {}
+        records = sheet.get_all_records()
         
+        # Pull admin password directly from Streamlit Secrets
+        admin_pw = st.secrets.get("ADMIN_PASSWORD", "default_admin_password")
+        
+        passwords = {"admin": admin_pw}
+        for row in records:
+            key = f"{row['BranchCode']} - {row['BranchName']}"
+            passwords[key] = row.get("Password", "")
+            
+        return records, passwords
+    
     except Exception as e:
-        # This will now show the type of error and the error itself
-        st.error(f"TYPE: {type(e).__name__}")
-        st.error(f"MESSAGE: {str(e)}")
+        st.error(f"Error loading master data: {e}")
         st.stop()
 # Fetch data securely and instantly from memory
 branch_data, passwords = load_master_branch_data()
@@ -317,17 +320,20 @@ if st.session_state.selected_branch != "-- Select Branch --":
                 st.session_state.reset_mode = True
 
     # ---------------- RESET PASSWORD ----------------
-    if st.session_state.reset_mode:
-        st.subheader("Reset Password")
-        admin_pass = st.text_input("Admin Password", type="password")
-        new_pass = st.text_input("New Password", type="password")
-        if st.button("Update Password"):
-            if admin_pass == load_admin()["admin"]:
-                save_passwords(st.session_state.selected_branch, new_pass)
-                st.success("Password updated successfully")
-                st.session_state.reset_mode = False
-            else:
-                st.error("Wrong admin password")
+# ---------------- RESET PASSWORD ----------------
+if st.session_state.reset_mode:
+    st.subheader("Reset Password")
+    admin_pass = st.text_input("Admin Password", type="password")
+    new_pass = st.text_input("New Password", type="password")
+    
+    if st.button("Update Password"):
+        # Compare against the secret directly
+        if admin_pass == st.secrets.get("ADMIN_PASSWORD"):
+            save_passwords(st.session_state.selected_branch, new_pass)
+            st.success("Password updated successfully")
+            st.session_state.reset_mode = False
+        else:
+            st.error("Wrong admin password")
 
 # ---------------- AFTER LOGIN ----------------
 if st.session_state.authenticated:
