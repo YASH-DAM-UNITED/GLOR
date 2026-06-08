@@ -160,7 +160,8 @@ if "gs_client" not in st.session_state:
 def load_master_branch_data():
     # Access the client from session state instead of a global 'client' variable
     client = st.session_state.gs_client 
-    sheet = client.open("MASTERBRANCHSHEET").sheet1
+    SPREADSHEET_ID = "1Qrk0_Uq6jaIeEbJjvs0zlYJPezEd-zsst2VJ-kWTzc0"
+    sheet = client.open_by_key(SPREADSHEET_ID).sheet1
     records = sheet.get_all_records()
     
     # Pre-map a password dictionary
