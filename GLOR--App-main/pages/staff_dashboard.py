@@ -11,6 +11,24 @@ from pathlib import Path
 import pandas as pd
 import time
 
+
+from google.oauth2.service_account import Credentials
+import gspread
+import streamlit as st
+
+def get_fresh_client():
+    # Streamlit automatically treats the [GOOGLE_CREDS_JSON] section as a dictionary
+    creds_dict = st.secrets["GOOGLE_CREDS_JSON"]
+    
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+    ]
+    
+    # Pass the dictionary directly to the Google library
+    creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+    return gspread.authorize(creds)
+
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(layout="wide", page_title="BART Staff Dashboard")
 
