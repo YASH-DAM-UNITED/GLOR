@@ -174,28 +174,28 @@ def get_fresh_client():
 
 if "gs_client" not in st.session_state:
     st.session_state.gs_client = get_fresh_client()
-
-@st.cache_data(ttl=3000)
+@st.cache_data(ttl=300)
 def load_master_branch_data():
     try:
         client = st.session_state.gs_client
-        # Using the hardcoded ID for stability
         MASTER_SHEET_ID = "1ldPuDKDljUeAEBFuDBXHGuYePlzJinhdlG4cCEJkWZU"
+        
+        # This is where it's failing. Let's see why.
         sheet = client.open_by_key(MASTER_SHEET_ID).sheet1
         records = sheet.get_all_records()
         
-        # Pull admin password directly from Streamlit Secrets
-        admin_pw = st.secrets.get("ADMIN_PASSWORD", "default_admin_password")
-        
+        admin_pw = st.secrets.get("ADMIN_PASSWORD", "admin123")
         passwords = {"admin": admin_pw}
+        
         for row in records:
-            key = f"{row['BranchCode']} - {row['BranchName']}"
+            key = f"{row.get('BranchCode', '')} - {row.get('BranchName', '')}"
             passwords[key] = row.get("Password", "")
             
         return records, passwords
     
     except Exception as e:
-        st.error(f"Error loading master data: {e}")
+        # This will now display the exact error message on your screen
+        st.error(f"DEBUG ERROR: {type(e).__name__}: {str(e)}")
         st.stop()
 # Fetch data securely and instantly from memory
 branch_data, passwords = load_master_branch_data()
