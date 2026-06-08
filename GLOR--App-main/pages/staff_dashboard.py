@@ -177,33 +177,45 @@ except Exception as e:
 
 
 # 2. Use this complete block for loading data
+# --- Ensure this is defined at the top of your script ---
+
+
 @st.cache_data(ttl=3000)
 def load_master_branch_data():
     """
-    Fetches master branch data using the unique Sheet ID.
-    Maps passwords for authentication.
+    Fetches master branch data with detailed error logging.
     """
     try:
-        # Access the client from session state
+        # Access the client
         client = st.session_state.gs_client 
         
-        # Access the spreadsheet directly by ID to avoid Drive search API errors
+        # Access the spreadsheet and the first sheet
         spreadsheet = client.open_by_key(MASTER_SHEET_ID)
         sheet = spreadsheet.sheet1
+        
+        # Get all records
         records = sheet.get_all_records()
         
-        # Load local admin password
+        # Load admin data
         admin_data = load_admin() 
         passwords = {"admin": admin_data.get("admin", "admin123")}
         
         # Map branch credentials
+        # We add error handling here to see if a row is missing expected keys
         for row in records:
-            key = f"{row['BranchCode']} - {row['BranchName']}"
-            passwords[key] = row.get("Password", "")
+            try:
+                # Construct key: Ensure these column names match your Google Sheet headers EXACTLY
+                key = f"{row['BranchCode']} - {row['BranchName']}"
+                passwords[key] = row.get("Password", "")
+            except KeyError as e:
+                st.error(f"Missing column header in Google Sheet: {e}")
+                return [], {}
             
         return records, passwords
+        
     except Exception as e:
-        st.error(f"Error loading master branch data: {e}")
+        # This will print the specific Python error to your screen
+        st.error(f"Data Load Error: {type(e).__name__} - {str(e)}")
         return [], {}
 
 # 3. Initialize your branch data
