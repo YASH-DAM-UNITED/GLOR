@@ -182,40 +182,24 @@ except Exception as e:
 
 @st.cache_data(ttl=3000)
 def load_master_branch_data():
-    """
-    Fetches master branch data with detailed error logging.
-    """
+    client = st.session_state.gs_client 
     try:
-        # Access the client
-        client = st.session_state.gs_client 
-        
-        # Access the spreadsheet and the first sheet
         spreadsheet = client.open_by_key(MASTER_SHEET_ID)
+        
+        # Check if we can get basic metadata
+        title = spreadsheet.title
+        
+        # Access the first sheet
         sheet = spreadsheet.sheet1
         
-        # Get all records
+        # Attempt a small read
         records = sheet.get_all_records()
         
-        # Load admin data
-        admin_data = load_admin() 
-        passwords = {"admin": admin_data.get("admin", "admin123")}
-        
-        # Map branch credentials
-        # We add error handling here to see if a row is missing expected keys
-        for row in records:
-            try:
-                # Construct key: Ensure these column names match your Google Sheet headers EXACTLY
-                key = f"{row['BranchCode']} - {row['BranchName']}"
-                passwords[key] = row.get("Password", "")
-            except KeyError as e:
-                st.error(f"Missing column header in Google Sheet: {e}")
-                return [], {}
-            
-        return records, passwords
+        return records, {"admin": "admin123"} # Simplified for testing
         
     except Exception as e:
-        # This will print the specific Python error to your screen
-        st.error(f"Data Load Error: {type(e).__name__} - {str(e)}")
+        # If it hits here, we know exactly where it failed
+        st.error(f"Failed at: {type(e).__name__} - {str(e)}")
         return [], {}
 
 # 3. Initialize your branch data
