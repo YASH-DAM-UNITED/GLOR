@@ -184,6 +184,9 @@ branch_data, passwords = load_master_branch_data()
 branches = [f"{b['BranchCode']} - {b['BranchName']}" for b in branch_data]
 branch_options = ["-- Select Branch --"] + branches
 
+
+st.write(f"My Service Account Email is: {st.session_state.gs_client.auth.service_account_email}")
+
 def save_passwords(branch_key, new_password):
     sheet = client.open("MASTERBRANCHSHEET").sheet1
     records = sheet.get_all_records()
