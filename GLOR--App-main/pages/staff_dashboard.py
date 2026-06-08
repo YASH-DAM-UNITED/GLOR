@@ -200,8 +200,6 @@ if "branch_list" not in st.session_state:
     st.session_state.branch_list = branches
 
 # Fetch data securely and instantly from memory
-branch_data, passwords = load_master_branch_data()
-branches = [f"{b['BranchCode']} - {b['BranchName']}" for b in branch_data]
 branch_options = ["-- Select Branch --"] + branches
 
 def save_passwords(branch_key, new_password):
