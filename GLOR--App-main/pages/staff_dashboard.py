@@ -1,8 +1,9 @@
 import streamlit as st
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-
-
+import streamlit as st
+import gspread
+from google.oauth2.service_account import Credentials
 import streamlit as st
 import gspread
 from google.oauth2.service_account import Credentials
@@ -143,11 +144,10 @@ check_timeout()
 
 # ---------------- SELF-HEALING GOOGLE CONNECTION ----------------
 def get_fresh_client():
-    # Diagnostic: Check if secrets are loading at all
     if "GOOGLE_CREDS_JSON" not in st.secrets:
-        st.error("SECRET MISSING: GOOGLE_CREDS_JSON not found in Streamlit secrets!")
+        st.error("Missing GOOGLE_CREDS_JSON in secrets!")
         st.stop()
-        
+    
     creds_dict = dict(st.secrets["GOOGLE_CREDS_JSON"])
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
