@@ -143,9 +143,12 @@ check_timeout()
 
 # ---------------- SELF-HEALING GOOGLE CONNECTION ----------------
 def get_fresh_client():
-    # This must match the [GOOGLE_CREDS_JSON] header in your secrets
-    creds_dict = st.secrets["GOOGLE_CREDS_JSON"]
-    
+    # Diagnostic: Check if secrets are loading at all
+    if "GOOGLE_CREDS_JSON" not in st.secrets:
+        st.error("SECRET MISSING: GOOGLE_CREDS_JSON not found in Streamlit secrets!")
+        st.stop()
+        
+    creds_dict = dict(st.secrets["GOOGLE_CREDS_JSON"])
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
@@ -153,39 +156,23 @@ def get_fresh_client():
     creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     return gspread.authorize(creds)
 
-# Ensure client exists and is fresh
-if "gs_client" not in st.session_state:
-    st.session_state.gs_client = get_fresh_client()
-# ---------------- LOAD BRANCHES & PASSWORDS (CONSOLIDATED & CACHED) ----------------
-
-# ---------------- LOAD BRANCHES & PASSWORDS ----------------
-@st.cache_data(ttl=3000)
+@st.cache_data(ttl=60) # Reduced TTL for testing
 def load_master_branch_data():
     try:
-        # Use your provided ID directly
-        MASTER_SHEET_ID = "1ldPuDKDljUeAEBFuDBXHGuYePlzJinhdlG4cCEJkWZU"
-        client = st.session_state.gs_client 
-        
-        # Open directly by key
-        sheet = client.open_by_key(MASTER_SHEET_ID).sheet1
-        records = sheet.get_all_records()
-        
-        # Ensure 'admin' password is pulled from your secrets
-        passwords = {"admin": st.secrets.get("ADMIN_PASSWORD", "admin123")}
-        
-        for row in records:
-            # Safely get branch details
-            branch_code = row.get("BranchCode", "")
-            branch_name = row.get("BranchName", "")
-            if branch_code and branch_name:
-                key = f"{branch_code} - {branch_name}"
-                passwords[key] = row.get("Password", "")
+        client = st.session_state.gs_client
+        # Double check: does client exist?
+        if client is None:
+            st.error("Client is None")
+            st.stop()
             
-        return records, passwords
-    
+        MASTER_SHEET_ID = "1ldPuDKDljUeAEBFuDBXHGuYePlzJinhdlG4cCEJkWZU"
+        sheet = client.open_by_key(MASTER_SHEET_ID).sheet1
+        return sheet.get_all_records(), {}
+        
     except Exception as e:
-        st.error(f"❌ Critical Error: Could not connect to Master Sheet.")
-        st.error(f"Details: {e}")
+        # This will now show the type of error and the error itself
+        st.error(f"TYPE: {type(e).__name__}")
+        st.error(f"MESSAGE: {str(e)}")
         st.stop()
 # Fetch data securely and instantly from memory
 branch_data, passwords = load_master_branch_data()
