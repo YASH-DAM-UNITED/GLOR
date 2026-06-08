@@ -16,18 +16,7 @@ from google.oauth2.service_account import Credentials
 import gspread
 import streamlit as st
 
-def get_fresh_client():
-    # Streamlit automatically treats the [GOOGLE_CREDS_JSON] section as a dictionary
-    creds_dict = st.secrets["GOOGLE_CREDS_JSON"]
-    
-    scopes = [
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive"
-    ]
-    
-    # Pass the dictionary directly to the Google library
-    creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
-    return gspread.authorize(creds)
+
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(layout="wide", page_title="BART Staff Dashboard")
@@ -174,16 +163,30 @@ def get_fresh_client():
 if "gs_client" not in st.session_state:
     st.session_state.gs_client = get_fresh_client()
 # ---------------- LOAD BRANCHES & PASSWORDS (CONSOLIDATED & CACHED) ----------------
-@st.cache_data(ttl=3000)  # Use a numeric TTL (seconds) instead of None
+@# Place this at the very top of your file
+MASTER_SHEET_ID = "YOUR_LONG_SPREADSHEET_ID_HERE" 
+
+@st.cache_data(ttl=3000)
 def load_master_branch_data():
-    # Access the client from session state instead of a global 'client' variable
+    """
+    Fetches master branch list and maps passwords.
+    Uses open_by_key to bypass Google Drive search API limitations.
+    """
+    # Access the client from session state
     client = st.session_state.gs_client 
-    sheet = client.open("MASTERBRANCHSHEET").sheet1
+    
+    # Use open_by_key for direct access
+    spreadsheet = client.open_by_key(MASTER_SHEET_ID)
+    sheet = spreadsheet.sheet1
     records = sheet.get_all_records()
     
     # Pre-map a password dictionary
-    passwords = {"admin": load_admin()["admin"]}
+    # We include 'admin' from your local JSON, then add branches from the sheet
+    admin_data = load_admin() 
+    passwords = {"admin": admin_data.get("admin", "admin123")}
+    
     for row in records:
+        # Construct the same key used in your selectbox
         key = f"{row['BranchCode']} - {row['BranchName']}"
         passwords[key] = row.get("Password", "")
         
