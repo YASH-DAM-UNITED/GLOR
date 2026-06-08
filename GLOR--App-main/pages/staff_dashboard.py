@@ -144,11 +144,11 @@ check_timeout()
 # ---------------- SELF-HEALING GOOGLE CONNECTION ----------------
 def get_fresh_client():
     creds_dict = st.secrets["GOOGLE_CREDS_JSON"]
+    # These two scopes are mandatory for full gspread functionality
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
     ]
-    # Always create a fresh credential object to avoid stale token issues
     creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     return gspread.authorize(creds)
 
