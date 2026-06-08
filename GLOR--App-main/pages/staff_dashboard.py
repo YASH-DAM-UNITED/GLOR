@@ -155,20 +155,6 @@ def get_fresh_client():
 # Ensure client exists and is fresh
 if "gs_client" not in st.session_state:
     st.session_state.gs_client = get_fresh_client()
-
-
-
-st.write("--- DEBUGGING CONNECTION ---")
-try:
-    client = st.session_state.gs_client
-    files = client.list_spreadsheet_files()
-    st.write("Number of files visible to Service Account:", len(files))
-    found = any(f.get('id') == MASTER_SHEET_ID for f in files)
-    st.write(f"Is MASTER_SHEET_ID in visible list? {found}")
-    if not found:
-        st.warning("The Service Account cannot see the file. It is NOT shared correctly.")
-except Exception as e:
-    st.error(f"Authentication Failed: {e}")
 # ---------------- LOAD BRANCHES & PASSWORDS (CONSOLIDATED & CACHED) ----------------
 @st.cache_data(ttl=3000)  # Use a numeric TTL (seconds) instead of None
 def load_master_branch_data():
@@ -341,11 +327,6 @@ if st.session_state.authenticated:
         st.session_state.show_stock_view = not st.session_state.get("show_stock_view", False)
         refresh_activity()
         st.rerun()
-
-    
-
-
-
 
     
 
