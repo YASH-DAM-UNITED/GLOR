@@ -12,7 +12,7 @@ import pandas as pd
 import time
 
 # ---------------- PAGE CONFIG ----------------
-st.set_page_config(layout="wide", page_title="BART Staff Dashboard")
+st.set_page_config(layout="wide", page_title="GLOR Staff Dashboard")
 
 SESSION_TIMEOUT = 30 * 60
 
