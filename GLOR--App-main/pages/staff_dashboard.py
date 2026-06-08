@@ -109,7 +109,7 @@ def show_transfer_dialog(transfer):
         st.rerun()
 
 def update_transfer_status(transfer_id, status):
-    sheet = st.session_state.gs_client.open("MASTERBRANCHSHEET1").worksheet("Transfers")
+    sheet = st.session_state.gs_client.open("MASTERBRANCHSHEET").worksheet("Transfers")
     cell = sheet.find(transfer_id)
     if cell:
         # Col 7 is the Status column
@@ -117,7 +117,7 @@ def update_transfer_status(transfer_id, status):
         st.success(f"Transfer {transfer_id} marked as {status}")
 
 def check_for_pending_transfers():
-    sheet = st.session_state.gs_client.open("MASTERBRANCHSHEET1").worksheet("Transfers")
+    sheet = st.session_state.gs_client.open("MASTERBRANCHSHEET").worksheet("Transfers")
     records = sheet.get_all_records()
     my_branch = st.session_state.selected_branch
     
@@ -160,7 +160,7 @@ if "gs_client" not in st.session_state:
 def load_master_branch_data():
     # Access the client from session state instead of a global 'client' variable
     client = st.session_state.gs_client 
-    sheet = client.open("MASTERBRANCHSHEET1").sheet1
+    sheet = client.open("MASTERBRANCHSHEET").sheet1
     records = sheet.get_all_records()
     
     # Pre-map a password dictionary
@@ -184,7 +184,7 @@ branches = [f"{b['BranchCode']} - {b['BranchName']}" for b in branch_data]
 branch_options = ["-- Select Branch --"] + branches
 
 def save_passwords(branch_key, new_password):
-    sheet = client.open("MASTERBRANCHSHEET1").sheet1
+    sheet = client.open("MASTERBRANCHSHEET").sheet1
     records = sheet.get_all_records()
 
     for idx, row in enumerate(records, start=2):
@@ -411,7 +411,7 @@ if st.session_state.get("show_stock_view", False):
 # --- 1. Notification Check (Run on load) ---
 def check_notifications():
     # Only hit the API for the notifications tab
-    sheet = client.open("MASTERBRANCHSHEET1").worksheet("Notifications")
+    sheet = client.open("MASTERBRANCHSHEET").worksheet("Notifications")
     records = sheet.get_all_records()
     
     my_code = st.session_state.selected_branch.split(" - ")[0]
