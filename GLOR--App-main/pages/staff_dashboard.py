@@ -156,20 +156,30 @@ def get_fresh_client():
 if "gs_client" not in st.session_state:
     st.session_state.gs_client = get_fresh_client()
 # ---------------- LOAD BRANCHES & PASSWORDS (CONSOLIDATED & CACHED) ----------------
-@st.cache_data(ttl=3000)  # Use a numeric TTL (seconds) instead of None
+
+# ---------------- LOAD BRANCHES & PASSWORDS ----------------
+@st.cache_data(ttl=3000)
 def load_master_branch_data():
-    # Access the client from session state instead of a global 'client' variable
-    client = st.session_state.gs_client 
-    sheet = client.open("MASTERBRANCHSHEET").sheet1
-    records = sheet.get_all_records()
-    
-    # Pre-map a password dictionary
-    passwords = {"admin": load_admin()["admin"]}
-    for row in records:
-        key = f"{row['BranchCode']} - {row['BranchName']}"
-        passwords[key] = row.get("Password", "")
+    try:
+        # Use the ID directly to avoid "File Not Found" errors
+        client = st.session_state.gs_client 
+        sheet = client.open_by_key("YOUR_MASTER_SHEET_ID_HERE").sheet1
+        records = sheet.get_all_records()
         
-    return records, passwords
+        # Pre-map a password dictionary
+        # Note: Ensure you handle the Admin password via st.secrets as discussed
+        passwords = {"admin": st.secrets["ADMIN_PASSWORD"]} 
+        
+        for row in records:
+            key = f"{row['BranchCode']} - {row['BranchName']}"
+            passwords[key] = row.get("Password", "")
+            
+        return records, passwords
+    
+    except Exception as e:
+        st.error(f"❌ Error connecting to Master Sheet: {e}")
+        st.error("Check: 1) Is the Service Account email shared with the sheet? 2) Is the Sheet ID correct?")
+        st.stop()
 # Fetch data securely and instantly from memory
 branch_data, passwords = load_master_branch_data()
 branches = [f"{b['BranchCode']} - {b['BranchName']}" for b in branch_data]
