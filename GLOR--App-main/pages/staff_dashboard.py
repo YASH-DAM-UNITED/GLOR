@@ -50,7 +50,7 @@ st.markdown("""
     text-align: center;
     margin-bottom: 20px;
 ">
-<h1 style='color:white; margin:0;'>BART Staff Dashboard</h1>
+<h1 style='color:white; margin:0;'>GLOR Staff Dashboard</h1>
 <p style='color:#e0e0e0; margin:0;'>Select Branch & Access Operations</p>
 </div>
 """, unsafe_allow_html=True)
