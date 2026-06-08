@@ -163,7 +163,7 @@ def get_fresh_client():
 if "gs_client" not in st.session_state:
     st.session_state.gs_client = get_fresh_client()
 # ---------------- LOAD BRANCHES & PASSWORDS (CONSOLIDATED & CACHED) ----------------
-@# Place this at the very top of your file
+# Place this at the very top of your file
 MASTER_SHEET_ID = "YOUR_LONG_SPREADSHEET_ID_HERE" 
 
 @st.cache_data(ttl=3000)
