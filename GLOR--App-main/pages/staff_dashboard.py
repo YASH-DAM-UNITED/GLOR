@@ -156,6 +156,10 @@ def get_fresh_client():
     creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     return gspread.authorize(creds)
 
+
+if "gs_client" not in st.session_state:
+    st.session_state.gs_client = get_fresh_client()
+
 @st.cache_data(ttl=60) # Reduced TTL for testing
 def load_master_branch_data():
     try:
