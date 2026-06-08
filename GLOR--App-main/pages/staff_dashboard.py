@@ -11,6 +11,9 @@ from pathlib import Path
 import pandas as pd
 import time
 
+
+
+MASTER_SHEET_ID = "1fKOtqdN_QlVNuHQujSlBKPJDk3n19zy1A4S1DwNCQro"
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(layout="wide", page_title="BART Staff Dashboard")
 
@@ -171,7 +174,7 @@ except Exception as e:
     st.error(f"Authentication Failed: {e}")
 # ---------------- LOAD BRANCHES & PASSWORDS (CONSOLIDATED & CACHED) ----------------
 # 1. Define this once at the top of your script (under your imports)
-MASTER_SHEET_ID = "1fKOtqdN_QlVNuHQujSlBKPJDk3n19zy1A4S1DwNCQro"
+
 
 # 2. Use this complete block for loading data
 @st.cache_data(ttl=3000)
