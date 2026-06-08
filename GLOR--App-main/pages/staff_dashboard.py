@@ -160,8 +160,7 @@ if "gs_client" not in st.session_state:
 def load_master_branch_data():
     # Access the client from session state instead of a global 'client' variable
     client = st.session_state.gs_client 
-    SPREADSHEET_ID = "1Qrk0_Uq6jaIeEbJjvs0zlYJPezEd-zsst2VJ-kWTzc0"
-    sheet = client.open_by_key(SPREADSHEET_ID).sheet1
+    sheet = client.open("MASTERBRANCHSHEET").sheet1
     records = sheet.get_all_records()
     
     # Pre-map a password dictionary
@@ -183,9 +182,6 @@ if "branch_list" not in st.session_state:
 branch_data, passwords = load_master_branch_data()
 branches = [f"{b['BranchCode']} - {b['BranchName']}" for b in branch_data]
 branch_options = ["-- Select Branch --"] + branches
-
-
-st.write(f"My Service Account Email is: {st.session_state.gs_client.auth.service_account_email}")
 
 def save_passwords(branch_key, new_password):
     sheet = client.open("MASTERBRANCHSHEET").sheet1
