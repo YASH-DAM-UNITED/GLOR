@@ -1,9 +1,8 @@
 import streamlit as st
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-import streamlit as st
-import gspread
-from google.oauth2.service_account import Credentials
+
+
 import streamlit as st
 import gspread
 from google.oauth2.service_account import Credentials
@@ -12,24 +11,8 @@ from pathlib import Path
 import pandas as pd
 import time
 
-
-# --- GOOGLE CLIENT INITIALIZATION ---
-if "gs_client" not in st.session_state:
-    try:
-        from google.oauth2.service_account import Credentials
-        creds_dict = dict(st.secrets["GOOGLE_CREDS_JSON"])
-        scopes = [
-            "https://www.googleapis.com/auth/spreadsheets",
-            "https://www.googleapis.com/auth/drive"
-        ]
-        creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
-        st.session_state.gs_client = gspread.authorize(creds)
-    except Exception as e:
-        st.error(f"Failed to initialize Google Client: {e}")
-        st.stop()
-
 # ---------------- PAGE CONFIG ----------------
-st.set_page_config(layout="wide", page_title="GLOR Staff Dashboard")
+st.set_page_config(layout="wide", page_title="BART Staff Dashboard")
 
 SESSION_TIMEOUT = 30 * 60
 
@@ -67,7 +50,7 @@ st.markdown("""
     text-align: center;
     margin-bottom: 20px;
 ">
-<h1 style='color:white; margin:0;'>GLOR Staff Dashboard</h1>
+<h1 style='color:white; margin:0;'>BART Staff Dashboard</h1>
 <p style='color:#e0e0e0; margin:0;'>Select Branch & Access Operations</p>
 </div>
 """, unsafe_allow_html=True)
@@ -81,7 +64,8 @@ def init_file():
             json.dump({"admin": "admin123"}, f)
 
 def load_admin():
-    return {"admin": st.secrets["ADMIN_PASSWORD"]}
+    with open(FILE_NAME, "r") as f:
+        return json.load(f)
 
 init_file()
 
@@ -125,7 +109,7 @@ def show_transfer_dialog(transfer):
         st.rerun()
 
 def update_transfer_status(transfer_id, status):
-    sheet = st.session_state.gs_client.open("MASTERBRANCHSHEET1").worksheet("Transfers")
+    sheet = st.session_state.gs_client.open("MASTERBRANCHSHEET").worksheet("Transfers")
     cell = sheet.find(transfer_id)
     if cell:
         # Col 7 is the Status column
@@ -133,7 +117,7 @@ def update_transfer_status(transfer_id, status):
         st.success(f"Transfer {transfer_id} marked as {status}")
 
 def check_for_pending_transfers():
-    sheet = st.session_state.gs_client.open("MASTERBRANCHSHEET1").worksheet("Transfers")
+    sheet = st.session_state.gs_client.open("MASTERBRANCHSHEET").worksheet("Transfers")
     records = sheet.get_all_records()
     my_branch = st.session_state.selected_branch
     
@@ -159,44 +143,33 @@ check_timeout()
 
 # ---------------- SELF-HEALING GOOGLE CONNECTION ----------------
 def get_fresh_client():
-    if "GOOGLE_CREDS_JSON" not in st.secrets:
-        st.error("Missing GOOGLE_CREDS_JSON in secrets!")
-        st.stop()
-    
-    creds_dict = dict(st.secrets["GOOGLE_CREDS_JSON"])
+    creds_dict = st.secrets["GOOGLE_CREDS_JSON"]
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
     ]
+    # Always create a fresh credential object to avoid stale token issues
     creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     return gspread.authorize(creds)
 
-
+# Ensure client exists and is fresh
 if "gs_client" not in st.session_state:
     st.session_state.gs_client = get_fresh_client()
-@st.cache_data(ttl=300)
+# ---------------- LOAD BRANCHES & PASSWORDS (CONSOLIDATED & CACHED) ----------------
+@st.cache_data(ttl=3000)  # Use a numeric TTL (seconds) instead of None
 def load_master_branch_data():
-    try:
-        client = st.session_state.gs_client
-        MASTER_SHEET_ID = "1ldPuDKDljUeAEBFuDBXHGuYePlzJinhdlG4cCEJkWZU"
-        
-        # This is where it's failing. Let's see why.
-        sheet = client.open_by_key(MASTER_SHEET_ID).sheet1
-        records = sheet.get_all_records()
-        
-        admin_pw = st.secrets.get("ADMIN_PASSWORD", "admin123")
-        passwords = {"admin": admin_pw}
-        
-        for row in records:
-            key = f"{row.get('BranchCode', '')} - {row.get('BranchName', '')}"
-            passwords[key] = row.get("Password", "")
-            
-        return records, passwords
+    # Access the client from session state instead of a global 'client' variable
+    client = st.session_state.gs_client 
+    sheet = client.open("MASTERBRANCHSHEET").sheet1
+    records = sheet.get_all_records()
     
-    except Exception as e:
-        # This will now display the exact error message on your screen
-        st.error(f"DEBUG ERROR: {type(e).__name__}: {str(e)}")
-        st.stop()
+    # Pre-map a password dictionary
+    passwords = {"admin": load_admin()["admin"]}
+    for row in records:
+        key = f"{row['BranchCode']} - {row['BranchName']}"
+        passwords[key] = row.get("Password", "")
+        
+    return records, passwords
 # Fetch data securely and instantly from memory
 branch_data, passwords = load_master_branch_data()
 branches = [f"{b['BranchCode']} - {b['BranchName']}" for b in branch_data]
@@ -211,7 +184,7 @@ branches = [f"{b['BranchCode']} - {b['BranchName']}" for b in branch_data]
 branch_options = ["-- Select Branch --"] + branches
 
 def save_passwords(branch_key, new_password):
-    sheet = client.open("MASTERBRANCHSHEET1").sheet1
+    sheet = client.open("MASTERBRANCHSHEET").sheet1
     records = sheet.get_all_records()
 
     for idx, row in enumerate(records, start=2):
@@ -320,20 +293,17 @@ if st.session_state.selected_branch != "-- Select Branch --":
                 st.session_state.reset_mode = True
 
     # ---------------- RESET PASSWORD ----------------
-# ---------------- RESET PASSWORD ----------------
-if st.session_state.reset_mode:
-    st.subheader("Reset Password")
-    admin_pass = st.text_input("Admin Password", type="password")
-    new_pass = st.text_input("New Password", type="password")
-    
-    if st.button("Update Password"):
-        # Compare against the secret directly
-        if admin_pass == st.secrets.get("ADMIN_PASSWORD"):
-            save_passwords(st.session_state.selected_branch, new_pass)
-            st.success("Password updated successfully")
-            st.session_state.reset_mode = False
-        else:
-            st.error("Wrong admin password")
+    if st.session_state.reset_mode:
+        st.subheader("Reset Password")
+        admin_pass = st.text_input("Admin Password", type="password")
+        new_pass = st.text_input("New Password", type="password")
+        if st.button("Update Password"):
+            if admin_pass == load_admin()["admin"]:
+                save_passwords(st.session_state.selected_branch, new_pass)
+                st.success("Password updated successfully")
+                st.session_state.reset_mode = False
+            else:
+                st.error("Wrong admin password")
 
 # ---------------- AFTER LOGIN ----------------
 if st.session_state.authenticated:
@@ -436,7 +406,7 @@ if st.session_state.get("show_stock_view", False):
 # --- 1. Notification Check (Run on load) ---
 def check_notifications():
     # Only hit the API for the notifications tab
-    sheet = client.open("MASTERBRANCHSHEET1").worksheet("Notifications")
+    sheet = client.open("MASTERBRANCHSHEET").worksheet("Notifications")
     records = sheet.get_all_records()
     
     my_code = st.session_state.selected_branch.split(" - ")[0]
