@@ -170,35 +170,42 @@ try:
 except Exception as e:
     st.error(f"Authentication Failed: {e}")
 # ---------------- LOAD BRANCHES & PASSWORDS (CONSOLIDATED & CACHED) ----------------
+# 1. Define this once at the top of your script (under your imports)
+MASTER_SHEET_ID = "1fKOtqdN_QlVNuHQujSlBKPJDk3n19zy1A4S1DwNCQro"
+
+# 2. Use this complete block for loading data
 @st.cache_data(ttl=3000)
 def load_master_branch_data():
-    client = st.session_state.gs_client 
-    
-    # CRITICAL: Use the ID, not the name
-    spreadsheet = client.open_by_key(MASTER_SHEET_ID)
-    sheet = spreadsheet.sheet1
-    records = sheet.get_all_records()
-    
-    # ... rest of your code to process records/passwords
-    admin_data = load_admin()
-    passwords = {"admin": admin_data.get("admin", "admin123")}
-    for row in records:
-        key = f"{row['BranchCode']} - {row['BranchName']}"
-        passwords[key] = row.get("Password", "")
+    """
+    Fetches master branch data using the unique Sheet ID.
+    Maps passwords for authentication.
+    """
+    try:
+        # Access the client from session state
+        client = st.session_state.gs_client 
         
-    return records, passwords
-# Fetch data securely and instantly from memory
-branch_data, passwords = load_master_branch_data()
-branches = [f"{b['BranchCode']} - {b['BranchName']}" for b in branch_data]
+        # Access the spreadsheet directly by ID to avoid Drive search API errors
+        spreadsheet = client.open_by_key(MASTER_SHEET_ID)
+        sheet = spreadsheet.sheet1
+        records = sheet.get_all_records()
+        
+        # Load local admin password
+        admin_data = load_admin() 
+        passwords = {"admin": admin_data.get("admin", "admin123")}
+        
+        # Map branch credentials
+        for row in records:
+            key = f"{row['BranchCode']} - {row['BranchName']}"
+            passwords[key] = row.get("Password", "")
+            
+        return records, passwords
+    except Exception as e:
+        st.error(f"Error loading master branch data: {e}")
+        return [], {}
 
-# ONLY set this if it isn't already there to avoid unnecessary processing
-if "branch_list" not in st.session_state:
-    st.session_state.branch_list = branches
-
-# Fetch data securely and instantly from memory
+# 3. Initialize your branch data
 branch_data, passwords = load_master_branch_data()
-branches = [f"{b['BranchCode']} - {b['BranchName']}" for b in branch_data]
-branch_options = ["-- Select Branch --"] + branches
+branch_options = ["-- Select Branch --"] + [f"{b['BranchCode']} - {b['BranchName']}" for b in branch_data]
 
 def save_passwords(branch_key, new_password):
     sheet = client.open_by_key(MASTER_SHEET_ID).sheet1
