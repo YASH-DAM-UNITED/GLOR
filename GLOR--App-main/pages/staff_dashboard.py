@@ -82,8 +82,7 @@ def init_file():
             json.dump({"admin": "admin123"}, f)
 
 def load_admin():
-    with open(FILE_NAME, "r") as f:
-        return json.load(f)
+    return {"admin": st.secrets["ADMIN_PASSWORD"]}
 
 init_file()
 
