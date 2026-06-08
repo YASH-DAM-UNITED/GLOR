@@ -170,15 +170,18 @@ try:
 except Exception as e:
     st.error(f"Authentication Failed: {e}")
 # ---------------- LOAD BRANCHES & PASSWORDS (CONSOLIDATED & CACHED) ----------------
-@st.cache_data(ttl=3000)  # Use a numeric TTL (seconds) instead of None
+@st.cache_data(ttl=3000)
 def load_master_branch_data():
-    # Access the client from session state instead of a global 'client' variable
     client = st.session_state.gs_client 
-    sheet = client.open("MASTERBRANCHSHEET").sheet1
+    
+    # CRITICAL: Use the ID, not the name
+    spreadsheet = client.open_by_key(MASTER_SHEET_ID)
+    sheet = spreadsheet.sheet1
     records = sheet.get_all_records()
     
-    # Pre-map a password dictionary
-    passwords = {"admin": load_admin()["admin"]}
+    # ... rest of your code to process records/passwords
+    admin_data = load_admin()
+    passwords = {"admin": admin_data.get("admin", "admin123")}
     for row in records:
         key = f"{row['BranchCode']} - {row['BranchName']}"
         passwords[key] = row.get("Password", "")
