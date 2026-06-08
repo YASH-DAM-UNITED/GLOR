@@ -184,7 +184,8 @@ branches = [f"{b['BranchCode']} - {b['BranchName']}" for b in branch_data]
 branch_options = ["-- Select Branch --"] + branches
 
 def save_passwords(branch_key, new_password):
-    sheet = client.open("MASTERBRANCHSHEET").sheet1
+    # Change 'client' to 'st.session_state.gs_client'
+    sheet = st.session_state.gs_client.open("MASTERBRANCHSHEET").sheet1
     records = sheet.get_all_records()
 
     for idx, row in enumerate(records, start=2):
