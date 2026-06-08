@@ -12,6 +12,23 @@ from pathlib import Path
 import pandas as pd
 import time
 
+
+# --- GOOGLE CLIENT INITIALIZATION ---
+# This block ensures the client exists even if this page is loaded directly
+if "gs_client" not in st.session_state:
+    try:
+        from google.oauth2.service_account import Credentials
+        creds_dict = dict(st.secrets["GOOGLE_CREDS_JSON"])
+        scopes = [
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive"
+        ]
+        creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+        st.session_state.gs_client = gspread.authorize(creds)
+    except Exception as e:
+        st.error(f"Failed to initialize Google Client: {e}")
+        st.stop()
+
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(layout="wide", page_title="GLOR Staff Dashboard")
 
