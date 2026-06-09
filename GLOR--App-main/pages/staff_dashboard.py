@@ -156,18 +156,19 @@ def get_fresh_client():
 if "gs_client" not in st.session_state:
     st.session_state.gs_client = get_fresh_client()
 # ---------------- LOAD BRANCHES & PASSWORDS (CONSOLIDATED & CACHED) ----------------
-@st.cache_data(ttl=3000)  # Use a numeric TTL (seconds) instead of None
+@st.cache_data(ttl=3000)
 def load_master_branch_data():
-    # Access the client from session state instead of a global 'client' variable
     client = st.session_state.gs_client 
     sheet = client.open("MASTERBRANCHSHEET").sheet1
     records = sheet.get_all_records()
     
-    # Pre-map a password dictionary
     passwords = {"admin": load_admin()["admin"]}
     for row in records:
-        key = f"{row['BranchCode']} - {row['BranchName']}"
-        passwords[key] = row.get("Password", "")
+        # STRIP WHITESPACE to ensure the key is clean
+        code = str(row['BranchCode']).strip()
+        name = str(row['BranchName']).strip()
+        key = f"{code} - {name}"
+        passwords[key] = str(row.get("Password", "")).strip()
         
     return records, passwords
 # Fetch data securely and instantly from memory
