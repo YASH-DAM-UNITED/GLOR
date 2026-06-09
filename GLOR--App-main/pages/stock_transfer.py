@@ -30,20 +30,33 @@ with st.expander("➕ Add Items to Transfer", expanded=True):
     category = st.radio("Select Item Category", ["Daily Items", "Weekly Items"], horizontal=True, key="cat_radio")
     target_list = st.session_state.current_stocks['daily'] if category == "Daily Items" else st.session_state.current_stocks['weekly']
     
-    item_names = [row['Item'] for row in target_list]
+    if not target_list:
+        st.warning("No items available in this category.")
+        st.stop()
+
+    # Get a list of item names. Using .get() ensures we don't crash if 'Item' is missing.
+    item_names = [str(row.get('Item', 'Unnamed Item')) for row in target_list]
     selected_item = st.selectbox("Select Item", item_names, key="item_sel")
     
-    selected_row = next(row for row in target_list if row['Item'] == selected_item)
-    uom_display = selected_row.get('DATE->  UOM', 'units') 
+    # Locate the specific row
+    selected_row = next((row for row in target_list if str(row.get('Item')) == selected_item), None)
     
-    col1, col2 = st.columns([3, 1])
-    qty = col1.number_input("Quantity", min_value=1, step=1, key="qty_input")
-    col2.markdown("<br>", unsafe_allow_html=True) 
-    col2.write(f"**{uom_display}**")
-    
-    if st.button("Add to List", key="add_btn"):
-        st.session_state.transfer_cart.append({"item": selected_item, "qty": qty, "uom": uom_display})
-        st.success(f"Added {selected_item} to cart!")
+    if selected_row:
+        # Use .get() for the UOM to prevent errors if the column name varies
+        uom_display = selected_row.get('DATE->  UOM', 'units') 
+        
+        col1, col2 = st.columns([3, 1])
+        qty = col1.number_input("Quantity", min_value=1, step=1, key="qty_input")
+        col2.markdown("<br>", unsafe_allow_html=True) 
+        col2.write(f"**{uom_display}**")
+        
+        if st.button("Add to List", key="add_btn"):
+            st.session_state.transfer_cart.append({
+                "item": selected_item, 
+                "qty": qty, 
+                "uom": uom_display
+            })
+            st.success(f"Added {selected_item} to cart!")
 
 # 2. CART AND DESTINATION SECTION
 if st.session_state.transfer_cart:
