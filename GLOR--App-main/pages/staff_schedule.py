@@ -54,7 +54,7 @@ if "gspread_client" not in st.session_state:
         st.stop()
 
 master_sheet = st.session_state.gspread_client.open_by_key(
-    "1UtHUn7miqYzaP-NnrwMR_5wnSgLnaYPRQX2c4I7_9B0"
+    "1fKOtqdN_QlVNuHQujSlBKPJDk3n19zy1A4S1DwNCQro"
 )
 
 # =========================
