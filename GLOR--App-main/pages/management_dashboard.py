@@ -457,29 +457,40 @@ def normalize_sku(value):
     return str(value).replace(" ", "").strip().upper()
 
 def detect_category(sku):
-    s = normalize_sku(sku)
+    if not sku:
+        return "FOOD ITEMS"
     
-    # Check explicitly missing or divider values first
-    if not s or s == "-" or s == "NONE" or s == "NAN":
+    s = str(sku).replace(" ", "").strip().upper()
+    
+    # 1. Immediate Exclusions
+    if s in ["-", "NONE", "NAN", ""]:
         return "FOOD ITEMS"
-        
-    # 1. Clean strict exact match lookup
-    if s in FOOD_SKUS:
+    
+    # 2. Strict Exact Matches (Overrides for specific exceptions)
+    # If a SKU belongs to a category but doesn't follow the naming pattern
+    exceptions = {
+        "SG": "MISC ITEMS",
+        "SVP": "MISC ITEMS"
+    }
+    if s in exceptions:
+        return exceptions[s]
+
+    # 3. Pattern Matching (Robust Prefix Logic)
+    # We define the prefixes for each category
+    # Note: Food items often have diverse prefixes, so we prioritize the most specific ones
+    if s.startswith(('CB', 'CF', 'B', 'F', 'K')):
         return "FOOD ITEMS"
-    if s in DRY_SKUS:
+    
+    # Dry items usually follow Pxxx, Cxxx, or RSxxx
+    if s.startswith(('P', 'C', 'IC', 'RS')):
+        # Handle variations like P361-S -> P361 (strip suffixes)
+        # We check if it matches the 'P' group
         return "DRY ITEMS"
-    if s in MISC_SKUS:
+        
+    # Misc items
+    if s.startswith(('T', 'TOY', 'SVP')):
         return "MISC ITEMS"
         
-    # 2. Smart Fallback Patterns (Catching prefixes safely)
-    if s.startswith(('B', 'F', 'K', 'CB', 'CF', 'S')):
-        return "FOOD ITEMS"
-    if s.startswith(('C', 'P', 'IC', 'RS')):
-        return "DRY ITEMS"
-    if s.startswith(('T', 'SVP', 'TOY', 'ΤΟΥ')):
-        return "MISC ITEMS"
-        
-    # 3. Dynamic Uncategorized Safety bucket
     return "UNCATEGORIZED DETECTED"
 
 def build_category_dfs(df):
