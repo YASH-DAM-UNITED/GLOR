@@ -33,7 +33,7 @@ with st.expander("➕ Add Items to Transfer", expanded=True):
     item_names = [row['DAILY ITEM'] for row in target_list if row.get('DAILY ITEM')]
     selected_item = st.selectbox("Select Item", item_names, key="item_sel")
     
-    selected_row = next(row for row in target_list if row['Item'] == selected_item)
+    selected_row = next(row for row in target_list if row.get('DAILY ITEM') == selected_item)
     uom_display = selected_row.get('DATE->  UOM', 'units') 
     
     col1, col2 = st.columns([3, 1])
