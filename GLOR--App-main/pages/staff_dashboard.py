@@ -369,17 +369,20 @@ if st.session_state.get("show_stock_view", False):
                 if current_section is None or not row or not row[0]:
                     continue
                 
+# --- REPLACE THIS INSIDE THE DATA PARSING LOOP ---
                 item = row[0].strip()
-                row_values = row[1:]
+                sku = row[1].strip()  # Update index if SKU is in a different column
+                uom = row[2].strip()  # Update index if UOM is in a different column
+                
+                row_values = row[3:]  # Adjust if your data starts after index 2
                 padding_needed = len(date_columns) - len(row_values)
                 values = row_values + ([""] * max(0, padding_needed))
                 
                 cleaned, total = [], 0
                 for i, v in enumerate(values):
-                    # Logic: Skip index 0 (Item) and 1 (Category/Secondary info)
-                    # This allows index 2 (the 3rd column) and index 3 (the 4th column) 
-                    # and onwards to be treated as numbers for the total.
-                    if i < 2:
+                    # Logic: Skip index 0 (Item), 1 (SKU), 2 (UOM)
+                    # We start counting totals from index 3 onwards
+                    if i < 0: # Adjust if needed
                         cleaned.append(v)
                         continue
                     
@@ -391,7 +394,12 @@ if st.session_state.get("show_stock_view", False):
                     cleaned.append(num)
                     total += num
                 
-                row_dict = {"Item": item}
+                # IMPORTANT: Include SKU and UOM in the dictionary
+                row_dict = {
+                    "Item": item, 
+                    "SKU": sku, 
+                    "DATE->  UOM": uom
+                }
                 for i, col in enumerate(date_columns):
                     row_dict[col] = cleaned[i]
                 row_dict["Total"] = total
@@ -414,22 +422,23 @@ if st.session_state.get("show_stock_view", False):
         st.session_state.show_stock_view = False
         st.rerun()
 
-# --- 1. Notification Check (Run on load) ---
+# --- REPLACE THIS ENTIRE FUNCTION ---
 def check_notifications():
-    # Only hit the API for the notifications tab
-    sheet = client.open("MASTERBRANCHSHEET").worksheet("Notifications")
+    # Use the session_state client to avoid 'client' not defined errors
+    sheet = st.session_state.gs_client.open("MASTERBRANCHSHEET").worksheet("Notifications")
     records = sheet.get_all_records()
     
-    my_code = st.session_state.selected_branch.split(" - ")[0]
+    # Safely handle the string splitting
+    branch_val = st.session_state.selected_branch
+    if "--" in branch_val: return 
+    
+    my_code = branch_val.split(" - ")[0]
     
     # Filter for unread
-    unread = [r for r in records if r['TargetBranchCode'] == my_code and r['Status'] == 'unread']
+    unread = [r for r in records if str(r['TargetBranchCode']) == my_code and r['Status'] == 'unread']
     
     for note in unread:
         st.toast(f"📦 Incoming Transfer: {note['Message']}", icon="🔔")
-        # Update sheet to 'read' to prevent loop
-        # (Add logic here to find row index and update status to 'read')
-
 
 
 # ---------------- BACK ----------------
