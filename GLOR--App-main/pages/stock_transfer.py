@@ -29,21 +29,39 @@ if "current_stocks" not in st.session_state:
 with st.expander("➕ Add Items to Transfer", expanded=True):
     category = st.radio("Select Item Category", ["Daily Items", "Weekly Items"], horizontal=True, key="cat_radio")
     target_list = st.session_state.current_stocks['daily'] if category == "Daily Items" else st.session_state.current_stocks['weekly']
-    st.write(target_list) # Temporarily view the data in your app
-    item_names = [row['DAILY ITEM'] for row in target_list if row.get('DAILY ITEM')]
+    
+    # Debug: Uncomment the line below if you continue to see errors. 
+    # It will show you exactly what the header keys look like in your data.
+    # st.write("Data Keys:", list(target_list[0].keys()) if target_list else "No data")
+
+    # Use the exact key as it appears in your data (including spaces)
+    key_name = 'DAILY ITEM' if category == "Daily Items" else 'WEEKLY ITEM' # Adjust 'WEEKLY ITEM' if different
+    
+    item_names = [row.get(key_name) for row in target_list if row.get(key_name)]
     selected_item = st.selectbox("Select Item", item_names, key="item_sel")
     
-    selected_row = next((row for row in target_list if row.get('DAILY ITEM') == selected_item), None)
-    uom_display = selected_row.get('DATE-> UOM', 'units') 
+    # Safe search for the row
+    selected_row = next((row for row in target_list if row.get(key_name) == selected_item), None)
     
-    col1, col2 = st.columns([3, 1])
-    qty = col1.number_input("Quantity", min_value=1, step=1, key="qty_input")
-    col2.markdown("<br>", unsafe_allow_html=True) 
-    col2.write(f"**{uom_display}**")
-    
-    if st.button("Add to List", key="add_btn"):
-        st.session_state.transfer_cart.append({"item": selected_item, "qty": qty, "uom": uom_display})
-        st.success(f"Added {selected_item} to cart!")
+    if selected_row:
+        # Match the exact header from your snippet
+        uom_display = selected_row.get('DATE->  UOM', 'units') 
+        
+        col1, col2 = st.columns([3, 1])
+        qty = col1.number_input("Quantity", min_value=1, step=1, key="qty_input")
+        col2.markdown("<br>", unsafe_allow_html=True) 
+        col2.write(f"**{uom_display}**")
+        
+        if st.button("Add to List", key="add_btn"):
+            st.session_state.transfer_cart.append({
+                "item": selected_item, 
+                "qty": qty, 
+                "uom": uom_display
+            })
+            st.success(f"Added {selected_item} to cart!")
+    else:
+        st.warning("Item details could not be loaded. Please check your sheet headers.")
+        st.stop()
 
 # 2. CART AND DESTINATION SECTION
 if st.session_state.transfer_cart:
