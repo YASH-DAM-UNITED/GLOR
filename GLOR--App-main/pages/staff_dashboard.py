@@ -86,6 +86,7 @@ for k, v in defaults.items():
 
 
 # --- HELPER FUNCTIONS FOR NOTIFICATIONS ---
+# --- HELPER FUNCTIONS FOR NOTIFICATIONS ---
 @st.dialog("📦 New Transfer Received")
 def show_transfer_dialog(transfer):
     st.write(f"### Transfer ID: `{transfer['ID']}`")
@@ -110,9 +111,10 @@ def show_transfer_dialog(transfer):
 
 def update_transfer_status(transfer_id, status):
     sheet = st.session_state.gs_client.open("MASTERBRANCHSHEET").worksheet("Transfers")
+    # Finding the row by ID column (Assuming 'ID' is the first column)
     cell = sheet.find(transfer_id)
     if cell:
-        # Col 7 is the Status column
+        # Update Column 7 (Status)
         sheet.update_cell(cell.row, 7, status)
         st.success(f"Transfer {transfer_id} marked as {status}")
 
@@ -124,8 +126,9 @@ def check_for_pending_transfers():
     # Filter for pending transfers where current branch is the destination
     pending = [r for r in records if r['Destination'] == my_branch and r['Status'] == 'Pending']
     
-    for transfer in pending:
-        show_transfer_dialog(transfer)
+    if pending:
+        # Show only the first one to avoid UI/Dialog conflicts
+        show_transfer_dialog(pending[0])
 # ---------------- ACTIVITY ----------------
 def refresh_activity():
     st.session_state.last_activity = time.time()
@@ -154,7 +157,14 @@ def get_fresh_client():
 
 # Ensure client exists and is fresh
 if "gs_client" not in st.session_state:
-    st.session_state.gs_client = get_fresh_client()
+    try:
+        creds_dict = st.secrets["GOOGLE_CREDS_JSON"]
+        scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+        creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+        st.session_state.gs_client = gspread.authorize(creds)
+    except Exception as e:
+        st.error(f"Connection Error: {e}")
+        st.stop()
 # ---------------- LOAD BRANCHES & PASSWORDS (CONSOLIDATED & CACHED) ----------------
 @st.cache_data(ttl=3000)
 def load_master_branch_data():
@@ -310,7 +320,10 @@ if st.session_state.selected_branch != "-- Select Branch --":
 # ---------------- AFTER LOGIN ----------------
 if st.session_state.authenticated:
     st.success(f"Logged in: {st.session_state.selected_branch}")
+    
+    # Check for transfers immediately upon login
     check_for_pending_transfers()
+    
     col1, col2, col3, col4 = st.columns(4)
 
     if col1.button("📦 Stock Record"):
@@ -320,18 +333,14 @@ if st.session_state.authenticated:
     if col2.button("📅 Staff Schedule"):
         refresh_activity()
         st.switch_page("pages/staff_schedule.py")
-
-    if col4.button("📦 Stock Transfer Internal "):
-        st.switch_page("pages/stock_transfer.py")
-
-    # CORRECTED: Indentation fixed here
-    if col3.button("🔍Stock View"):
+        
+    if col3.button("🔍 Stock View"):
         st.session_state.show_stock_view = not st.session_state.get("show_stock_view", False)
         refresh_activity()
         st.rerun()
 
-    
-
+    if col4.button("📦 Stock Transfer Internal"):
+        st.switch_page("pages/stock_transfer.py")
 
 # ---------------- STOCK VIEW SECTION ----------------
 # Only execute if the toggle is active AND we have a valid branch loaded
