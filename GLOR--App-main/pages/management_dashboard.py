@@ -70,7 +70,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-st.title("📦 BART - Stock Management (All Branches)")
+st.title("📦 GLOR - Stock Management (All Branches)")
 
 
 st.markdown(
@@ -127,7 +127,7 @@ def get_professional_report(report_data, date_str):
         summary_ws = workbook.add_worksheet("Dashboard Summary")
         summary_ws.hide_gridlines(2)
         title_fmt = workbook.add_format({'bold': True, 'font_size': 18, 'font_color': '#2C3E50'})
-        summary_ws.write('B2', 'BART Inventory Executive Report', title_fmt)
+        summary_ws.write('B2', 'GLOR Inventory Executive Report', title_fmt)
         
         # This will now work because date_str is provided as an argument
         summary_ws.write('B4', f'Generated Date: {date_str}')
@@ -911,7 +911,7 @@ with col2:
         label=" 📊 Generate LIVE  Report into Excel",
         # Pass BOTH report_data and the date variable:
         data=get_professional_report(report_data, selected_date_str), 
-        file_name=f"BART_Report_{selected_date_str}.xlsx",
+        file_name=f"GLOR_Report_{selected_date_str}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         use_container_width=True
     )
