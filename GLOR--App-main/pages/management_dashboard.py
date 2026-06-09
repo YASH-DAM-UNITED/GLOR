@@ -452,9 +452,20 @@ def build_df(data_dict, branch_names):
 # ========================================================
 # CATEGORY LOGIC (FIXED LOGIC PIPELINE)
 # ========================================================
-
-def normalize_sku(value):
-    return str(value).replace(" ", "").strip().upper()
+def normalize_sku_for_grouping(sku):
+    """
+    Strips suffixes or versioning to keep data grouped correctly.
+    Example: P361-S -> P361, P145/12 -> P145
+    """
+    s = str(sku).replace(" ", "").strip().upper()
+    
+    # Remove everything after a hyphen or slash for grouping purposes
+    if '-' in s:
+        s = s.split('-')[0]
+    if '/' in s:
+        s = s.split('/')[0]
+        
+    return s
 
 def detect_category(sku):
     if not sku:
