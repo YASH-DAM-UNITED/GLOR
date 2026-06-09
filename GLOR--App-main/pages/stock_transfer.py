@@ -31,19 +31,56 @@ with st.expander("➕ Add Items to Transfer", expanded=True):
     target_list = st.session_state.current_stocks['daily'] if category == "Daily Items" else st.session_state.current_stocks['weekly']
     
     if not target_list:
-        st.warning("No items available in this category.")
+        st.warning("No items found.")
         st.stop()
 
-    # Get a list of item names. Using .get() ensures we don't crash if 'Item' is missing.
-    item_names = [str(row.get('Item', 'Unnamed Item')) for row in target_list]
+    # Get the actual column name from the first row
+    # If the header is "DAILY ITEM", then 'Item' is not the key
+    columns = list(target_list[0].keys())
+    
+    # Select the first column that isn't empty as the "Item" column
+    item_col_name = columns[0] 
+    
+    # Use the discovered column name to get the list
+    item_names = [str(row.get(item_col_name, "Unnamed Item")) for row in target_list]
+    
     selected_item = st.selectbox("Select Item", item_names, key="item_sel")
     
-    # Locate the specific row
-    selected_row = next((row for row in target_list if str(row.get('Item')) == selected_item), None)
+    # Match the row using the discovered column name
+    selected_row = next((row for row in target_list if str(row.get(item_col_name)) == selected_item), None)
     
     if selected_row:
-        # Use .get() for the UOM to prevent errors if the column name varies
+        # Use .get() with the header name exactly as it appears in your sheet
         uom_display = selected_row.get('DATE->  UOM', 'units') 
+        
+        # ... remainder of your code# 1. ADD ITEMS SECTION
+with st.expander("➕ Add Items to Transfer", expanded=True):
+    category = st.radio("Select Item Category", ["Daily Items", "Weekly Items"], horizontal=True, key="cat_radio")
+    target_list = st.session_state.current_stocks['daily'] if category == "Daily Items" else st.session_state.current_stocks['weekly']
+    
+    if not target_list:
+        st.warning("No items found.")
+        st.stop()
+
+    # Get the actual column name from the first row
+    # If the header is "DAILY ITEM", then 'Item' is not the key
+    columns = list(target_list[0].keys())
+    
+    # Select the first column that isn't empty as the "Item" column
+    item_col_name = columns[0] 
+    
+    # Use the discovered column name to get the list
+    item_names = [str(row.get(item_col_name, "Unnamed Item")) for row in target_list]
+    
+    selected_item = st.selectbox("Select Item", item_names, key="item_sel")
+    
+    # Match the row using the discovered column name
+    selected_row = next((row for row in target_list if str(row.get(item_col_name)) == selected_item), None)
+    
+    if selected_row:
+        # Use .get() with the header name exactly as it appears in your sheet
+        uom_display = selected_row.get('DATE->  UOM', 'units') 
+       
         
         col1, col2 = st.columns([3, 1])
         qty = col1.number_input("Quantity", min_value=1, step=1, key="qty_input")
