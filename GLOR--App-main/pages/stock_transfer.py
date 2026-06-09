@@ -61,7 +61,7 @@ if st.session_state.transfer_cart:
     destination = st.selectbox("Select Destination Branch", st.session_state.branch_list, key="dest_sel")
     reason = st.text_area("Reason for Transfer", key="reason_input")
     
-    if st.button("Confirm and Send All", key="confirm_btn"):
+if st.button("Confirm and Send All", key="confirm_btn"):
         try:
             # 1. Capture Jeddah time and generate unique ID
             jeddah_time = datetime.now() + timedelta(hours=3)
@@ -77,27 +77,30 @@ if st.session_state.transfer_cart:
             client = gspread.authorize(creds)
             sheet = client.open("MASTERBRANCHSHEET").worksheet("Transfers")
             
-            # 3. Format strings for beautiful Google Sheet layout
+            # 3. Format data
             item_details = [f"• {entry['item']} ({entry['qty']} {entry['uom']})" for entry in st.session_state.transfer_cart]
             combined_items_str = "\n".join(item_details)
-            
             quantities_list = [str(entry['qty']) for entry in st.session_state.transfer_cart]
             combined_qtys_str = "\n".join(quantities_list)
             
-            # 4. Prepare row: ID is now the first column
+            # 4. Prepare and append row
             row_data = [
-                transfer_id,                                # ID Column
+                transfer_id,
                 str(st.session_state.get("selected_branch", "Unknown")), 
                 str(destination), 
                 str(combined_items_str), 
                 str(combined_qtys_str), 
                 str(reason),
-                "Pending",                                  # Status
-                str(current_timestamp)                      # Timestamp
+                "Pending",
+                str(current_timestamp)
             ]
             
             sheet.append_row(row_data)
+            
+            # 5. Clear cart and trigger the dialog
             st.session_state.transfer_cart = []
+            
+            # This line triggers the dialog UI
             success_dialog(f"Transfer successful! ID: {transfer_id}")
             
         except Exception as e:
