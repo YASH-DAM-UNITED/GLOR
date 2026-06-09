@@ -45,7 +45,7 @@ with st.expander("➕ Add Items to Transfer", expanded=True):
     
     if selected_row:
         # Match the exact header from your snippet
-        uom_display = selected_row.get('DATE->  UOM', 'units') 
+        uom_display = selected_row.get('DATE-> UOM', 'units') 
         
         col1, col2 = st.columns([3, 1])
         qty = col1.number_input("Quantity", min_value=1, step=1, key="qty_input")
