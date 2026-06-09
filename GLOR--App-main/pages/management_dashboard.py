@@ -435,20 +435,24 @@ def process_stock(all_data, selected_date_str, branch_names):
 # ========================================================
 
 def build_df(data_dict, branch_names):
+    columns = ["Item Name", "SKU", "UOM"] + branch_names + ["Total"]
+    
+    if not data_dict:
+        return pd.DataFrame(columns=columns)
+
     rows = []
     for _, v in data_dict.items():
         row = {
-            "Item Name": v["Item Name"],
-            "SKU": v["SKU"],
-            "UOM": v["UOM"]
+            "Item Name": v.get("Item Name", "Unknown"),
+            "SKU": v.get("SKU", "N/A"),
+            "UOM": v.get("UOM", "-")
         }
         for b in branch_names:
             row[b] = v.get(b, 0)
-
         row["Total"] = sum(row[b] for b in branch_names)
         rows.append(row)
+        
     return pd.DataFrame(rows)
-
 # ========================================================
 # CATEGORY LOGIC (FIXED LOGIC PIPELINE)
 # ========================================================
@@ -882,6 +886,12 @@ else:
 st.subheader("📊 Category Wise Stock Overview")
 
 # 1. Prepare data
+combined_stock.columns = combined_stock.columns.str.strip()
+
+# Add a check to see if "SKU" exists
+if "SKU" not in combined_stock.columns:
+    st.error(f"Critical Error: 'SKU' column missing. Found columns: {list(combined_stock.columns)}")
+    st.stop()
 combined_stock = pd.concat([daily_df, weekly_df], ignore_index=True)
 combined_stock = combined_stock.drop_duplicates(subset=["Item Name", "SKU", "UOM"])
 combined_stock["SKU_CLEAN"] = combined_stock["SKU"].astype(str).str.replace(" ", "").str.upper()
