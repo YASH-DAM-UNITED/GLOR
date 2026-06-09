@@ -14,7 +14,7 @@ def success_dialog(message):
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(page_title="Stock Transfer", layout="centered")
-st.title("🚀 Internal Stock Transfer")
+st.title("🚛 Internal Stock Transfer")
 
 if "transfer_cart" not in st.session_state:
     st.session_state.transfer_cart = []
@@ -30,70 +30,20 @@ with st.expander("➕ Add Items to Transfer", expanded=True):
     category = st.radio("Select Item Category", ["Daily Items", "Weekly Items"], horizontal=True, key="cat_radio")
     target_list = st.session_state.current_stocks['daily'] if category == "Daily Items" else st.session_state.current_stocks['weekly']
     
-    if not target_list:
-        st.warning("No items found.")
-        st.stop()
-
-    # Get the actual column name from the first row
-    # If the header is "DAILY ITEM", then 'Item' is not the key
-    columns = list(target_list[0].keys())
-    
-    # Select the first column that isn't empty as the "Item" column
-    item_col_name = columns[0] 
-    
-    # Use the discovered column name to get the list
-    item_names = [str(row.get(item_col_name, "Unnamed Item")) for row in target_list]
-    
+    item_names = [row['Item'] for row in target_list]
     selected_item = st.selectbox("Select Item", item_names, key="item_sel")
     
-    # Match the row using the discovered column name
-    selected_row = next((row for row in target_list if str(row.get(item_col_name)) == selected_item), None)
+    selected_row = next(row for row in target_list if row['Item'] == selected_item)
+    uom_display = selected_row.get('DATE->  UOM', 'units') 
     
-    if selected_row:
-        # Use .get() with the header name exactly as it appears in your sheet
-        uom_display = selected_row.get('DATE->  UOM', 'units') 
-        
-        # ... remainder of your code# 1. ADD ITEMS SECTION
-with st.expander("➕ Add Items to Transfer", expanded=True):
-    category = st.radio("Select Item Category", ["Daily Items", "Weekly Items"], horizontal=True, key="cat_radio")
-    target_list = st.session_state.current_stocks['daily'] if category == "Daily Items" else st.session_state.current_stocks['weekly']
+    col1, col2 = st.columns([3, 1])
+    qty = col1.number_input("Quantity", min_value=1, step=1, key="qty_input")
+    col2.markdown("<br>", unsafe_allow_html=True) 
+    col2.write(f"**{uom_display}**")
     
-    if not target_list:
-        st.warning("No items found.")
-        st.stop()
-
-    # Get the actual column name from the first row
-    # If the header is "DAILY ITEM", then 'Item' is not the key
-    columns = list(target_list[0].keys())
-    
-    # Select the first column that isn't empty as the "Item" column
-    item_col_name = columns[0] 
-    
-    # Use the discovered column name to get the list
-    item_names = [str(row.get(item_col_name, "Unnamed Item")) for row in target_list]
-    
-    selected_item = st.selectbox("Select Item", item_names, key="item_sel")
-    
-    # Match the row using the discovered column name
-    selected_row = next((row for row in target_list if str(row.get(item_col_name)) == selected_item), None)
-    
-    if selected_row:
-        # Use .get() with the header name exactly as it appears in your sheet
-        uom_display = selected_row.get('DATE->  UOM', 'units') 
-       
-        
-        col1, col2 = st.columns([3, 1])
-        qty = col1.number_input("Quantity", min_value=1, step=1, key="qty_input")
-        col2.markdown("<br>", unsafe_allow_html=True) 
-        col2.write(f"**{uom_display}**")
-        
-        if st.button("Add to List", key="add_btn"):
-            st.session_state.transfer_cart.append({
-                "item": selected_item, 
-                "qty": qty, 
-                "uom": uom_display
-            })
-            st.success(f"Added {selected_item} to cart!")
+    if st.button("Add to List", key="add_btn"):
+        st.session_state.transfer_cart.append({"item": selected_item, "qty": qty, "uom": uom_display})
+        st.success(f"Added {selected_item} to cart!")
 
 # 2. CART AND DESTINATION SECTION
 if st.session_state.transfer_cart:
@@ -111,7 +61,7 @@ if st.session_state.transfer_cart:
     destination = st.selectbox("Select Destination Branch", st.session_state.branch_list, key="dest_sel")
     reason = st.text_area("Reason for Transfer", key="reason_input")
     
-if st.button("Confirm and Send All", key="confirm_btn"):
+    if st.button("Confirm and Send All", key="confirm_btn"):
         try:
             # 1. Capture Jeddah time and generate unique ID
             jeddah_time = datetime.now() + timedelta(hours=3)
@@ -127,30 +77,27 @@ if st.button("Confirm and Send All", key="confirm_btn"):
             client = gspread.authorize(creds)
             sheet = client.open("MASTERBRANCHSHEET").worksheet("Transfers")
             
-            # 3. Format data
+            # 3. Format strings for beautiful Google Sheet layout
             item_details = [f"• {entry['item']} ({entry['qty']} {entry['uom']})" for entry in st.session_state.transfer_cart]
             combined_items_str = "\n".join(item_details)
+            
             quantities_list = [str(entry['qty']) for entry in st.session_state.transfer_cart]
             combined_qtys_str = "\n".join(quantities_list)
             
-            # 4. Prepare and append row
+            # 4. Prepare row: ID is now the first column
             row_data = [
-                transfer_id,
+                transfer_id,                                # ID Column
                 str(st.session_state.get("selected_branch", "Unknown")), 
                 str(destination), 
                 str(combined_items_str), 
                 str(combined_qtys_str), 
                 str(reason),
-                "Pending",
-                str(current_timestamp)
+                "Pending",                                  # Status
+                str(current_timestamp)                      # Timestamp
             ]
             
             sheet.append_row(row_data)
-            
-            # 5. Clear cart and trigger the dialog
             st.session_state.transfer_cart = []
-            
-            # This line triggers the dialog UI
             success_dialog(f"Transfer successful! ID: {transfer_id}")
             
         except Exception as e:
