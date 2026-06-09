@@ -343,82 +343,58 @@ if st.session_state.authenticated:
         st.switch_page("pages/stock_transfer.py")
 
 # ---------------- STOCK VIEW SECTION ----------------
-# Only execute if the toggle is active AND we have a valid branch loaded
 if st.session_state.get("show_stock_view", False):
     if branch_info is not None:
         with st.spinner("Fetching live stock data..."):
-            # Fetching data using the branch_info identified earlier
             sheet = st.session_state.gs_client.open_by_key(branch_info["SheetID"])
             ws = sheet.worksheet("Stocks")
             data = ws.get_all_values()
             
-            headers = data[0]
-            date_columns = headers[1:]
-            daily, weekly = [], []
-            current_section = None
-
-            # Data Parsing Logic
-            for row in data:
-                row_text = " ".join(row).strip().lower()
-                if "daily item" in row_text:
-                    current_section = "daily"
-                    continue
-                if "weekly item" in row_text:
-                    current_section = "weekly"
-                    continue
-                if current_section is None or not row or not row[0]:
-                    continue
+            if len(data) < 2:
+                st.warning("Stock sheet is empty.")
+            else:
+                # 1. Convert to DataFrame
+                headers = data[0]
+                df = pd.DataFrame(data[1:], columns=headers)
                 
-# --- REPLACE THIS INSIDE THE DATA PARSING LOOP ---
-                item = row[0].strip()
-                sku = row[1].strip()  # Update index if SKU is in a different column
-                uom = row[2].strip()  # Update index if UOM is in a different column
+                # 2. Clean data: Convert columns from index 3 onwards to numeric
+                # This prevents issues with empty strings or formatting
+                data_cols = df.columns[3:]
+                for col in data_cols:
+                    df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
                 
-                row_values = row[3:]  # Adjust if your data starts after index 2
-                padding_needed = len(date_columns) - len(row_values)
-                values = row_values + ([""] * max(0, padding_needed))
+                # 3. Calculate Total
+                df["Total"] = df[data_cols].sum(axis=1)
                 
-                cleaned, total = [], 0
-                for i, v in enumerate(values):
-                    # Logic: Skip index 0 (Item), 1 (SKU), 2 (UOM)
-                    # We start counting totals from index 3 onwards
-                    if i < 0: # Adjust if needed
-                        cleaned.append(v)
-                        continue
-                    
-                    try:
-                        num = float(v) if v != "" else 0
-                    except:
-                        num = 0
-                    
-                    cleaned.append(num)
-                    total += num
+                # 4. Split by section (Assuming a marker row like "Daily Item" exists)
+                # We identify where the sections break
+                daily_mask = df.iloc[:, 0].str.lower().str.contains("daily item", na=False)
+                weekly_mask = df.iloc[:, 0].str.lower().str.contains("weekly item", na=False)
                 
-                # IMPORTANT: Include SKU and UOM in the dictionary
-                row_dict = {
-                    "Item": item, 
-                    "SKU": sku, 
-                    "DATE->  UOM": uom
+                # Find indices to slice the dataframe
+                daily_idx = df.index[daily_mask].tolist()
+                weekly_idx = df.index[weekly_mask].tolist()
+                
+                start_daily = daily_idx[0] + 1 if daily_idx else 0
+                start_weekly = weekly_idx[0] + 1 if weekly_idx else len(df)
+                
+                # Slice and remove empty/marker rows
+                daily_df = df.iloc[start_daily:start_weekly].dropna(subset=[df.columns[0]])
+                weekly_df = df.iloc[start_weekly:].dropna(subset=[df.columns[0]])
+                
+                # 5. Display
+                st.subheader("📦 Daily Items Stock")
+                st.dataframe(daily_df, use_container_width=True, height=400)
+                
+                st.subheader("📦 Weekly Items Stock")
+                st.dataframe(weekly_df, use_container_width=True, height=400)
+                
+                # Save for other pages
+                st.session_state.current_stocks = {
+                    "daily": daily_df.to_dict('records'), 
+                    "weekly": weekly_df.to_dict('records')
                 }
-                for i, col in enumerate(date_columns):
-                    row_dict[col] = cleaned[i]
-                row_dict["Total"] = total
-                
-                if current_section == "daily":
-                    daily.append(row_dict)
-                else:
-                    weekly.append(row_dict)
-
-            st.subheader("📦 Daily Items Stock")
-            st.dataframe(pd.DataFrame(daily), use_container_width=True, height=400)
-            
-            st.subheader("📦 Weekly Items Stock")
-            st.dataframe(pd.DataFrame(weekly), use_container_width=True, height=400)
-            
-            # Save to session state for other pages
-            st.session_state.current_stocks = {"daily": daily, "weekly": weekly}
     else:
-        # If user logs out while view is open, force close the view
         st.session_state.show_stock_view = False
         st.rerun()
 
