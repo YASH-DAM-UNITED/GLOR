@@ -8,6 +8,7 @@ import time
 import hashlib
 import io
 import plotly.express as px
+from datetime import datetime, timedelta
 
 
 
@@ -70,7 +71,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-st.title("📦 BART - Stock Management (All Branches)")
+st.title("📦 GLOR - Stock Management (All Branches)")
 
 
 st.markdown(
@@ -127,7 +128,7 @@ def get_professional_report(report_data, date_str):
         summary_ws = workbook.add_worksheet("Dashboard Summary")
         summary_ws.hide_gridlines(2)
         title_fmt = workbook.add_format({'bold': True, 'font_size': 18, 'font_color': '#2C3E50'})
-        summary_ws.write('B2', 'BART Inventory Executive Report', title_fmt)
+        summary_ws.write('B2', 'GLOR Inventory Executive Report', title_fmt)
         
         # This will now work because date_str is provided as an argument
         summary_ws.write('B4', f'Generated Date: {date_str}')
@@ -144,21 +145,41 @@ def get_professional_report(report_data, date_str):
     return output.getvalue()
 
 def to_excel_bytes(data_frames):
-    """
-    Converts a dictionary of {sheet_name: dataframe} into Excel bytes.
-    """
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        workbook = writer.book
+        # Define formats
+        header_fmt = workbook.add_format({'bold': True, 'bg_color': '#FFFF00', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
+        data_fmt = workbook.add_format({'border': 1, 'align': 'center'})
+        total_fmt = workbook.add_format({'bold': True, 'bg_color': '#FFFF00', 'border': 1, 'align': 'center'})
+
         for sheet_name, df in data_frames.items():
-            if '::auto_unique_id::' in df.columns:
-                df = df.drop(columns=['::auto_unique_id::'])
-            # Ensure sheet name is valid for Excel (max 31 chars)
-            safe_name = "".join([c for c in sheet_name if c.isalnum() or c in (' ', '_')])[:31]
-            df.to_excel(writer, sheet_name=safe_name, index=False)
+            # Write data starting at row 3 (leaving room for 3 header rows)
+            df.to_excel(writer, sheet_name="Data", startrow=3, header=False, index=True)
+            worksheet = writer.sheets["Data"]
             
-            # Optional: Add formatting here if you want consistency
-            worksheet = writer.sheets[safe_name]
-            worksheet.hide_gridlines(2)
+            # Write custom Multi-row headers
+            for col_idx, (item, sku, uom) in enumerate(df.columns):
+                worksheet.write(0, col_idx + 1, item, header_fmt) # Row 0: Item Name
+                worksheet.write(1, col_idx + 1, sku, header_fmt)  # Row 1: SKU
+                worksheet.write(2, col_idx + 1, uom, header_fmt)  # Row 2: UOM
+            
+            # Write "Branch Name" label in the top-left cell (row 2, col 0)
+            worksheet.write(2, 0, "Branch Name", header_fmt)
+            
+            # Apply styling and borders to data rows
+            for r in range(len(df)):
+                row_idx = r + 3
+                # Determine if this is the "Total" row based on index name
+                is_total = str(df.index[r]) == "Total"
+                current_fmt = total_fmt if is_total else data_fmt
+                
+                # Write Index (Branch Name)
+                worksheet.write(row_idx, 0, str(df.index[r]), current_fmt)
+                
+                # Write Data
+                for c in range(len(df.columns)):
+                    worksheet.write(row_idx, c + 1, df.iloc[r, c], current_fmt)
             
     return output.getvalue()
 # ========================================================
@@ -193,7 +214,7 @@ FOOD_SKUS = {
     "CF006", "F148", "B028", "K072", "K176", "CB036", "K265", "B016", 
     "CB078", "K154", "CB054", "K226", "CB074", "M&M", "B014", "K242", 
     "S019", "B006", "CB055", "B017", "CB076", "CB056", "B026", "CB037", 
-    "K087", "CB043", "CB009", "CB043", "K063"
+    "K087", "CB043", "CB009", "CB043", "K063","MAM"
 }
 
 DRY_SKUS = {
@@ -328,7 +349,8 @@ if col3.button("⬅ LOGOUT "):
 # DATE
 # ========================================================
 
-selected_date = st.date_input("📅 Select Date")
+yesterday = datetime.now() - timedelta(days=1)
+selected_date = st.date_input("📅 Select Date", value=yesterday)
 selected_date_str = selected_date.strftime("%Y-%m-%d")
 
 
@@ -747,16 +769,14 @@ if st.session_state.get("show_manager", False):
 
 
 # ========================================================
-# GLOBAL GOOGLE-STYLE INVENTORY SEARCH (UPDATED)
+# GLOBAL GOOGLE-STYLE INVENTORY MULTI-SEARCH
 # ========================================================
 
 st.subheader("🔍 Global Inventory Search")
 
-# 1. Ensure both DataFrames have the "Total" column
-# (The build_df function already adds "Total", so this just ensures it's carried over)
+# 1. Ensure the pool is ready
 pool_daily = daily_df.copy()
 pool_daily["Schedule"] = "Daily"
-
 pool_weekly = weekly_df.copy()
 pool_weekly["Schedule"] = "Weekly"
 
@@ -773,40 +793,64 @@ if not search_pool.empty:
     
     search_options = sorted(search_pool["Search_Label"].unique())
     
-    selected_option = st.selectbox(
-        "Type an Item Name, SKU, or UOM to inspect branch stock...",
+    # 3. MULTI-SELECT COMPONENT
+    selected_options = st.multiselect(
+        "Select items to inspect (or search to add more):",
         options=search_options,
-        index=None,
-        placeholder="🔍 Start typing to search across all branches...",
-        key=f"global_search_bar_{selected_date_str}"
+        default=None,
+        placeholder="🔍 Start typing to search and select...",
+        key=f"global_multi_search_{selected_date_str}"
     )
     
-    if selected_option:
-        matched_row = search_pool[search_pool["Search_Label"] == selected_option]
+# 4. Process selection
+    if selected_options:
+        # Filter pool for all selected items
+        matched_df = search_pool[search_pool["Search_Label"].isin(selected_options)]
         
-        if not matched_row.empty:
-            st.markdown("---")
-            st.success(f"📌 **Selected Product:** {selected_option}")
+        st.markdown("---")
+        st.success(f"📌 **Showing {len(selected_options)} Selected Product(s)**")
+        
+        # Define display columns
+        display_cols = ["Item Name", "SKU", "UOM"] + branch_names + ["Total"]
+        result_df = matched_df[display_cols].reset_index(drop=True)
+        
+        # --- RENDER THE GRID (UI Version) ---
+        search_grid_key = f"multi_search_result_grid_{selected_date_str}_{hashlib.md5(str(selected_options).encode()).hexdigest()}"
+        with st.container():
+            make_grid(result_df, search_grid_key)
             
-            # Include "Total" in the display columns list
-            display_cols = ["Item Name", "SKU", "UOM"] + branch_names + ["Total"]
-            result_df = matched_row[display_cols].reset_index(drop=True)
-            
-            search_grid_key = f"search_result_grid_{selected_date_str}_{hashlib.md5(selected_option.encode()).hexdigest()}"
-            
-            with st.container():
-                # make_grid will now automatically see "Total" and apply the pinning logic
-                make_grid(result_df, search_grid_key)
-                
-                # Excel export remains the same
-                excel_data = to_excel_bytes({selected_option[:20]: result_df})
-                st.download_button(
-                    label="📥 Export Selected Item",
-                    data=excel_data,
-                    file_name=f"Report_{selected_date_str}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
-            st.markdown("---")
+        # --- TRANSPOSE FOR DOWNLOAD ---
+        # 1. Melt to get individual branch values
+        melted_df = result_df.melt(
+            id_vars=["Item Name", "SKU", "UOM"], 
+            value_vars=branch_names + ["Total"], 
+            var_name="Branch Name", 
+            value_name="Quantity"
+        )
+        
+        # 2. Pivot: Branches as rows, Items/SKU/UOM as columns
+        pivoted_df = melted_df.pivot_table(
+            index="Branch Name", 
+            columns=["Item Name", "SKU", "UOM"], 
+            values="Quantity",
+            aggfunc='sum'
+        )
+        
+        # 3. Explicitly reorder rows to match your exact branch list + Total
+        # This prevents alphabetical sorting and keeps your desired sequence
+        ordered_index = branch_names + (["Total"] if "Total" in pivoted_df.index else [])
+        final_export_df = pivoted_df.reindex(ordered_index)
+        
+        # 4. Final Export
+        excel_data = to_excel_bytes({"Selected_Items": final_export_df})
+        
+        st.download_button(
+            label=f"📥 Download {len(selected_options)} Items Transposed to Excel",
+            data=excel_data,
+            file_name=f"Selected_Items_Transposed_{selected_date_str}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        st.markdown("---")
             
 else:
     st.info("No stock data available to search for this date.")
@@ -911,7 +955,7 @@ with col2:
         label=" 📊 Generate LIVE  Report into Excel",
         # Pass BOTH report_data and the date variable:
         data=get_professional_report(report_data, selected_date_str), 
-        file_name=f"BART_Report_{selected_date_str}.xlsx",
+        file_name=f"GLOR_Report_{selected_date_str}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         use_container_width=True
     )
