@@ -30,7 +30,7 @@ with st.expander("➕ Add Items to Transfer", expanded=True):
     category = st.radio("Select Item Category", ["Daily Items", "Weekly Items"], horizontal=True, key="cat_radio")
     target_list = st.session_state.current_stocks['daily'] if category == "Daily Items" else st.session_state.current_stocks['weekly']
     st.write(target_list) # Temporarily view the data in your app
-    item_names = [row['Item'] for row in target_list if 'Item' in row and row['Item']]
+    item_names = [row['DAILY ITEM'] for row in target_list if row.get('DAILY ITEM')]
     selected_item = st.selectbox("Select Item", item_names, key="item_sel")
     
     selected_row = next(row for row in target_list if row['Item'] == selected_item)
