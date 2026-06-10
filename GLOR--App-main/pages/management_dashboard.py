@@ -12,6 +12,13 @@ from datetime import datetime, timedelta
 
 
 
+# Add this near your imports/initializations
+daily_df = pd.DataFrame()
+weekly_df = pd.DataFrame()
+combined_stock = pd.DataFrame()
+
+
+
 import hashlib
 
 def verify_manager_password(manager_name, password_input):
@@ -677,6 +684,10 @@ daily_items, weekly_items = process_stock(
 
 daily_df = build_df(daily_items, branch_names)
 weekly_df = build_df(weekly_items, branch_names)
+
+combined_stock = pd.concat([daily_df, weekly_df], ignore_index=True)
+combined_stock = combined_stock.drop_duplicates(subset=["Item Name", "SKU", "UOM"])
+combined_stock["SKU_CLEAN"] = combined_stock["SKU"].astype(str).str.replace(" ", "").str.upper()
 
 
 # 2. GATEKEEPER LOGIC
