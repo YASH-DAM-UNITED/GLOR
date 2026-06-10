@@ -491,7 +491,8 @@ def detect_category(sku):
     # 2. Strict Exact Matches (Overrides for specific exceptions)
     # If a SKU belongs to a category but doesn't follow the naming pattern
     exceptions = {
-        
+        "P130": "MISC ITEMS",
+        "F089": "MISC ITEMS",
         "SVP": "MISC ITEMS"
     }
     if s in exceptions:
@@ -504,7 +505,7 @@ def detect_category(sku):
         return "FOOD ITEMS"
     
     # Dry items usually follow Pxxx, Cxxx, or RSxxx
-    if s.startswith(('P36', 'C', 'IC', 'RS')):
+    if s.startswith(('P', 'C', 'IC', 'RS')):
         # Handle variations like P361-S -> P361 (strip suffixes)
         # We check if it matches the 'P' group
         return "DRY ITEMS"
