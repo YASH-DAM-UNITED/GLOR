@@ -501,7 +501,7 @@ def detect_category(sku):
     # 3. Pattern Matching (Robust Prefix Logic)
     # We define the prefixes for each category
     # Note: Food items often have diverse prefixes, so we prioritize the most specific ones
-    if s.startswith(('CB', 'CF', 'B', 'F', 'K')):
+    if s.startswith(('CB', 'CF', 'B', 'F', 'K','S')):
         return "FOOD ITEMS"
     
     # Dry items usually follow Pxxx, Cxxx, or RSxxx
