@@ -144,29 +144,6 @@ def check_timeout():
 
 check_timeout()
 
-
-
-@st.cache_data(ttl=3600)  # Caches for 1 hour
-def get_branch_credentials():
-    # Only called if cache is empty or expired
-    client = st.session_state.gs_client
-    sheet = client.open("MASTERBRANCHSHEET").sheet1
-    records = sheet.get_all_records()
-    
-    # Pre-process into a dictionary for O(1) lookup speed
-    creds_map = {}
-    for row in records:
-        key = f"{row['BranchCode']} - {row['BranchName']}"
-        creds_map[key] = {
-            "password": str(row.get("Password", "")).strip(),
-            "SheetID": row.get("SheetID"),
-            "data": row
-        }
-    return records, creds_map
-
-# Call it once at the start
-all_records, branch_creds_map = get_branch_credentials()
-
 # ---------------- SELF-HEALING GOOGLE CONNECTION ----------------
 def get_fresh_client():
     creds_dict = st.secrets["GOOGLE_CREDS_JSON"]
@@ -309,22 +286,23 @@ if st.session_state.selected_branch != "-- Select Branch --":
     if not st.session_state.authenticated:
         st.subheader("Branch Login")
         password = st.text_input("Password", type="password")
-        
-        if st.button("Login"):
-            # Retrieve specific branch info from the cached map
-            branch_data = branch_creds_map.get(st.session_state.selected_branch)
-            
-            if branch_data and branch_data["password"] == password:
-                st.session_state.authenticated = True
-                st.session_state.auth_branch = st.session_state.selected_branch
-                st.session_state.last_activity = time.time()
-                
-                # Assign cached data directly to state
-                st.session_state.sheet_id = branch_data["SheetID"]
-                st.session_state.branch_info = branch_data["data"]
-                st.rerun()
-            else:
-                st.error("Incorrect password")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Login"):
+                with st.spinner("Verifying credentials..."):
+                    if passwords.get(st.session_state.selected_branch, "") == password:
+                        st.session_state.authenticated = True
+                        st.session_state.auth_branch = st.session_state.selected_branch
+                        st.session_state.last_activity = time.time()
+                        st.session_state.sheet_id = branch_info["SheetID"]
+                        st.session_state.tab_name = "Stocks"
+                        st.session_state.branch_info = branch_info
+                        st.rerun()
+                    else:
+                        st.error("Incorrect password")
+        with col2:
+            if st.button("Reset Password"):
+                st.session_state.reset_mode = True
 
     # ---------------- RESET PASSWORD ----------------
     if st.session_state.reset_mode:
@@ -359,7 +337,7 @@ if st.session_state.authenticated:
     if col3.button("🔍 Stock View"):
         st.session_state.show_stock_view = not st.session_state.get("show_stock_view", False)
         refresh_activity()
-        
+        st.rerun()
 
     if col4.button("📦 Stock Transfer Internal"):
         st.switch_page("pages/stock_transfer.py")
