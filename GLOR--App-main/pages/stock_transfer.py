@@ -82,9 +82,8 @@ if "current_stocks" not in st.session_state:
 with st.expander("➕ Add Items to Transfer", expanded=True):
     category = st.radio("Select Item Category", ["Daily Items", "Weekly Items"], horizontal=True, key="cat_radio")
     target_list = st.session_state.current_stocks['daily'] if category == "Daily Items" else st.session_state.current_stocks['weekly']
-
-    item_names = [row['DAILY ITEM'] for row in target_list]
-    selected_row = next(row for row in target_list if row['DAILY ITEM'] == selected_item)
+    item_names = [list(row.values())[0] for row in target_list]
+    selected_item = st.selectbox("Select Item", item_names, key="item_sel")
 
 
 
