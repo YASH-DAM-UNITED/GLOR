@@ -88,7 +88,7 @@ with st.expander("➕ Add Items to Transfer", expanded=True):
 
 
     
-    selected_row = next(row for row in target_list if row['Item'] == selected_item)
+    selected_row = next(row for row in target_list if list(row.values())[0] == selected_item)
     uom_display = selected_row.get('DATE->  UOM', 'units') 
     
     col1, col2 = st.columns([3, 1])
