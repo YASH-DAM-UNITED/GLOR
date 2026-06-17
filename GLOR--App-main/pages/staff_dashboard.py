@@ -1,7 +1,7 @@
 import streamlit as st
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-
+import gspread.utils
 
 import streamlit as st
 import gspread
@@ -11,8 +11,16 @@ from pathlib import Path
 import pandas as pd
 import time
 
+
+if "gs_client" not in st.session_state:
+    creds_dict = st.secrets["GOOGLE_CREDS_JSON"]
+    creds = Credentials.from_service_account_info(creds_dict, scopes=[
+        "https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"
+    ])
+    st.session_state.gs_client = gspread.authorize(creds)
+
 # ---------------- PAGE CONFIG ----------------
-st.set_page_config(layout="wide", page_title="GLOR Staff Dashboard")
+st.set_page_config(layout="wide", page_title="BART Staff Dashboard")
 
 SESSION_TIMEOUT = 30 * 60
 
@@ -50,7 +58,7 @@ st.markdown("""
     text-align: center;
     margin-bottom: 20px;
 ">
-<h1 style='color:white; margin:0;'>GLOR Staff Dashboard</h1>
+<h1 style='color:white; margin:0;'>BART Staff Dashboard</h1>
 <p style='color:#e0e0e0; margin:0;'>Select Branch & Access Operations</p>
 </div>
 """, unsafe_allow_html=True)
@@ -85,7 +93,14 @@ for k, v in defaults.items():
 
 
 
-# --- HELPER FUNCTIONS FOR NOTIFICATIONS ---
+# Load the Branch Map so "Reject" logic knows where to send stock back
+if "branch_map" not in st.session_state:
+    master_sh = st.session_state.gs_client.open("MASTERBRANCHSHEET")
+    branch_ws = master_sh.worksheet("Branches")
+    data = branch_ws.get_all_values()[1:]
+    st.session_state.branch_map = {row[0]: row[1] for row in data}
+
+
 # --- HELPER FUNCTIONS FOR NOTIFICATIONS ---
 @st.dialog("📦 New Transfer Received")
 def show_transfer_dialog(transfer):
@@ -103,21 +118,100 @@ def show_transfer_dialog(transfer):
     
     col1, col2 = st.columns(2)
     if col1.button("✅ Accept", use_container_width=True):
-        update_transfer_status(transfer['ID'], "Accepted")
+        update_transfer_status(transfer['ID'], "Accepted", transfer)
         st.rerun()
     if col2.button("❌ Reject", use_container_width=True):
-        update_transfer_status(transfer['ID'], "Rejected")
+        update_transfer_status(transfer['ID'], "Rejected", transfer)
         st.rerun()
+def parse_transfer_items(transfer_data):
+    # Ensure we get strings, even if the data is None or empty
+    items_str = str(transfer_data.get('Items', ""))
+    qtys_str = str(transfer_data.get('Quantities', ""))
+    
+    # If there is no data, return an empty list immediately
+    if not items_str.strip() or not qtys_str.strip():
+        return []
+    
+    # Clean and split
+    items = [i.replace("• ", "").strip() for i in items_str.split("\n") if i.strip()]
+    qtys = [q.strip() for q in qtys_str.split("\n") if q.strip()]
+    
+    cart = []
+    # Loop through the shorter list to avoid index errors
+    for i in range(min(len(items), len(qtys))):
+        # Extract item name if it has extra detail like "(Qty UOM)"
+        item_name = items[i].split(" (")[0].strip()
+        cart.append({"item": item_name, "qty": qtys[i]})
+        
+    return cart
 
-def update_transfer_status(transfer_id, status):
-    sheet = st.session_state.gs_client.open("MASTERBRANCHSHEET").worksheet("Transfers")
-    # Finding the row by ID column (Assuming 'ID' is the first column)
+
+
+
+def update_transfer_status(transfer_id, status, transfer_data):
+    client = st.session_state.gs_client
+    sheet = client.open("MASTERBRANCHSHEET").worksheet("Transfers")
     cell = sheet.find(transfer_id)
     if cell:
-        # Update Column 7 (Status)
         sheet.update_cell(cell.row, 7, status)
-        st.success(f"Transfer {transfer_id} marked as {status}")
-
+    
+    # 2. If Rejected, perform the "Reverse" Operation on BOTH branches
+    if status == "Rejected":
+        origin_branch_raw = transfer_data['Origin']
+        dest_branch_raw = transfer_data['Destination'] # Grab destination from data
+        
+        origin_id = origin_branch_raw.split(" - ")[0]
+        dest_id = dest_branch_raw.split(" - ")[0]
+        
+        origin_key = st.session_state.branch_map.get(origin_id)
+        dest_key = st.session_state.branch_map.get(dest_id)
+        
+        cart = parse_transfer_items(transfer_data)
+        
+        if origin_key and dest_key:
+            # Open both sheets
+            origin_sh = client.open_by_key(origin_key)
+            dest_sh = client.open_by_key(dest_key)
+            
+            # Add back to Origin
+            ws_origin = origin_sh.worksheet("Stocks")
+            prepare_batch_updates(ws_origin, cart, "add")
+            
+            # Subtract from Destination
+            ws_dest = dest_sh.worksheet("Stocks")
+            prepare_batch_updates(ws_dest, cart, "subtract")
+            
+            st.success(f"Rejected: Stock returned to {origin_branch_raw} and removed from {dest_branch_raw}")
+        else:
+            st.error("Could not find branch map IDs to complete the reversal.")
+def prepare_batch_updates(ws, cart, mode="subtract"):
+    all_data = ws.get_all_values()
+    if not all_data: return "Error: Sheet is empty"
+    
+    # Identify item column and stock column
+    items_column = [row[0] for row in all_data]
+    # Assuming last column is the stock column
+    col_index = len(all_data[0]) - 1 
+    
+    batch_list = []
+    for entry in cart:
+        if entry['item'] in items_column:
+            row_idx = items_column.index(entry['item'])
+            current_val = all_data[row_idx][col_index]
+            current_num = int(float(current_val)) if current_val and str(current_val).strip() else 0
+            
+            if mode == "subtract":
+                new_val = current_num - int(entry['qty'])
+            else:
+                new_val = current_num + int(entry['qty'])
+                
+            cell_address = gspread.utils.rowcol_to_a1(row_idx + 1, col_index + 1)
+            batch_list.append({"range": cell_address, "values": [[new_val]]})
+            
+    if batch_list:
+        ws.batch_update(batch_list)
+        return "Success"
+    return "Error: Items not found"
 def check_for_pending_transfers():
     sheet = st.session_state.gs_client.open("MASTERBRANCHSHEET").worksheet("Transfers")
     records = sheet.get_all_records()
@@ -126,9 +220,8 @@ def check_for_pending_transfers():
     # Filter for pending transfers where current branch is the destination
     pending = [r for r in records if r['Destination'] == my_branch and r['Status'] == 'Pending']
     
-    if pending:
-        # Show only the first one to avoid UI/Dialog conflicts
-        show_transfer_dialog(pending[0])
+    for transfer in pending:
+        show_transfer_dialog(transfer)
 # ---------------- ACTIVITY ----------------
 def refresh_activity():
     st.session_state.last_activity = time.time()
@@ -157,28 +250,20 @@ def get_fresh_client():
 
 # Ensure client exists and is fresh
 if "gs_client" not in st.session_state:
-    try:
-        creds_dict = st.secrets["GOOGLE_CREDS_JSON"]
-        scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-        creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
-        st.session_state.gs_client = gspread.authorize(creds)
-    except Exception as e:
-        st.error(f"Connection Error: {e}")
-        st.stop()
+    st.session_state.gs_client = get_fresh_client()
 # ---------------- LOAD BRANCHES & PASSWORDS (CONSOLIDATED & CACHED) ----------------
-@st.cache_data(ttl=3000)
+@st.cache_data(ttl=3000)  # Use a numeric TTL (seconds) instead of None
 def load_master_branch_data():
+    # Access the client from session state instead of a global 'client' variable
     client = st.session_state.gs_client 
     sheet = client.open("MASTERBRANCHSHEET").sheet1
     records = sheet.get_all_records()
     
+    # Pre-map a password dictionary
     passwords = {"admin": load_admin()["admin"]}
     for row in records:
-        # STRIP WHITESPACE to ensure the key is clean
-        code = str(row['BranchCode']).strip()
-        name = str(row['BranchName']).strip()
-        key = f"{code} - {name}"
-        passwords[key] = str(row.get("Password", "")).strip()
+        key = f"{row['BranchCode']} - {row['BranchName']}"
+        passwords[key] = row.get("Password", "")
         
     return records, passwords
 # Fetch data securely and instantly from memory
@@ -195,8 +280,7 @@ branches = [f"{b['BranchCode']} - {b['BranchName']}" for b in branch_data]
 branch_options = ["-- Select Branch --"] + branches
 
 def save_passwords(branch_key, new_password):
-    # Change 'client' to 'st.session_state.gs_client'
-    sheet = st.session_state.gs_client.open("MASTERBRANCHSHEET").sheet1
+    sheet = client.open("MASTERBRANCHSHEET").sheet1
     records = sheet.get_all_records()
 
     for idx, row in enumerate(records, start=2):
@@ -320,8 +404,6 @@ if st.session_state.selected_branch != "-- Select Branch --":
 # ---------------- AFTER LOGIN ----------------
 if st.session_state.authenticated:
     st.success(f"Logged in: {st.session_state.selected_branch}")
-    
-    # Check for transfers immediately upon login
     check_for_pending_transfers()
     
     col1, col2, col3, col4 = st.columns(4)
@@ -333,88 +415,98 @@ if st.session_state.authenticated:
     if col2.button("📅 Staff Schedule"):
         refresh_activity()
         st.switch_page("pages/staff_schedule.py")
-        
-    if col3.button("🔍 Stock View"):
+
+    if col4.button("📦 Stock Transfer Internal "):
+        st.switch_page("pages/stock_transfer.py")
+
+    # CORRECTED: Indentation fixed here
+    if col3.button("🔍Stock View"):
         st.session_state.show_stock_view = not st.session_state.get("show_stock_view", False)
         refresh_activity()
         st.rerun()
 
-    if col4.button("📦 Stock Transfer Internal"):
-        st.switch_page("pages/stock_transfer.py")
+    
+
+
+
+
+    
+
 
 # ---------------- STOCK VIEW SECTION ----------------
+# Only execute if the toggle is active AND we have a valid branch loaded
 if st.session_state.get("show_stock_view", False):
     if branch_info is not None:
         with st.spinner("Fetching live stock data..."):
+            # Fetching data using the branch_info identified earlier
             sheet = st.session_state.gs_client.open_by_key(branch_info["SheetID"])
             ws = sheet.worksheet("Stocks")
             data = ws.get_all_values()
             
-            if len(data) < 2:
-                st.warning("Stock sheet is empty.")
-            else:
-                # 1. Convert to DataFrame
-                headers = data[0]
-                df = pd.DataFrame(data[1:], columns=headers)
+            headers = data[0]
+            date_columns = headers[1:]
+            daily, weekly = [], []
+            current_section = None
+
+            # Data Parsing Logic
+            for row in data:
+                row_text = " ".join(row).strip().lower()
+                if "daily item" in row_text:
+                    current_section = "daily"
+                    continue
+                if "weekly item" in row_text:
+                    current_section = "weekly"
+                    continue
+                if current_section is None or not row or not row[0]:
+                    continue
                 
-                # 2. Clean data: Convert columns from index 3 onwards to numeric
-                # This prevents issues with empty strings or formatting
-                data_cols = df.columns[3:]
-                for col in data_cols:
-                    df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+                item = row[0].strip()
+                row_values = row[1:]
+                padding_needed = len(date_columns) - len(row_values)
+                values = row_values + ([""] * max(0, padding_needed))
                 
-                # 3. Calculate Total
-                df["Total"] = df[data_cols].sum(axis=1)
+                cleaned, total = [], 0
+                for i, v in enumerate(values):
+                    # Logic: Skip index 0 (Item) and 1 (Category/Secondary info)
+                    # This allows index 2 (the 3rd column) and index 3 (the 4th column) 
+                    # and onwards to be treated as numbers for the total.
+                    if i < 2:
+                        cleaned.append(v)
+                        continue
+                    
+                    try:
+                        num = float(v) if v != "" else 0
+                    except:
+                        num = 0
+                    
+                    cleaned.append(num)
+                    total += num
                 
-                # 4. Split by section (Assuming a marker row like "Daily Item" exists)
-                # We identify where the sections break
-                daily_mask = df.iloc[:, 0].str.lower().str.contains("daily item", na=False)
-                weekly_mask = df.iloc[:, 0].str.lower().str.contains("weekly item", na=False)
+                row_dict = {"Item": item}
+                for i, col in enumerate(date_columns):
+                    row_dict[col] = cleaned[i]
+                row_dict["Total"] = total
                 
-                # Find indices to slice the dataframe
-                daily_idx = df.index[daily_mask].tolist()
-                weekly_idx = df.index[weekly_mask].tolist()
-                
-                start_daily = daily_idx[0] + 1 if daily_idx else 0
-                start_weekly = weekly_idx[0] + 1 if weekly_idx else len(df)
-                
-                # Slice and remove empty/marker rows
-                daily_df = df.iloc[start_daily:start_weekly].dropna(subset=[df.columns[0]])
-                weekly_df = df.iloc[start_weekly:].dropna(subset=[df.columns[0]])
-                
-                # 5. Display
-                st.subheader("📦 Daily Items Stock")
-                st.dataframe(daily_df, use_container_width=True, height=400)
-                
-                st.subheader("📦 Weekly Items Stock")
-                st.dataframe(weekly_df, use_container_width=True, height=400)
-                
-                # Save for other pages
-                st.session_state.current_stocks = {
-                    "daily": daily_df.to_dict('records'), 
-                    "weekly": weekly_df.to_dict('records')
-                }
+                if current_section == "daily":
+                    daily.append(row_dict)
+                else:
+                    weekly.append(row_dict)
+
+            st.subheader("📦 Daily Items Stock")
+            st.dataframe(pd.DataFrame(daily), use_container_width=True, height=400)
+            
+            st.subheader("📦 Weekly Items Stock")
+            st.dataframe(pd.DataFrame(weekly), use_container_width=True, height=400)
+            
+            # Save to session state for other pages
+            st.session_state.current_stocks = {"daily": daily, "weekly": weekly}
     else:
+        # If user logs out while view is open, force close the view
         st.session_state.show_stock_view = False
         st.rerun()
 
-# --- REPLACE THIS ENTIRE FUNCTION ---
-def check_notifications():
-    # Use the session_state client to avoid 'client' not defined errors
-    sheet = st.session_state.gs_client.open("MASTERBRANCHSHEET").worksheet("Notifications")
-    records = sheet.get_all_records()
-    
-    # Safely handle the string splitting
-    branch_val = st.session_state.selected_branch
-    if "--" in branch_val: return 
-    
-    my_code = branch_val.split(" - ")[0]
-    
-    # Filter for unread
-    unread = [r for r in records if str(r['TargetBranchCode']) == my_code and r['Status'] == 'unread']
-    
-    for note in unread:
-        st.toast(f"📦 Incoming Transfer: {note['Message']}", icon="🔔")
+
+
 
 
 # ---------------- BACK ----------------
