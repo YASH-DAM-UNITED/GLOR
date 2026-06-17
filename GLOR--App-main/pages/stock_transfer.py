@@ -98,6 +98,14 @@ with st.expander("➕ Add Items to Transfer", expanded=True):
         st.session_state.transfer_cart.append({"item": selected_item, "qty": qty, "uom": uom_display})
         st.success(f"Added {selected_item} to cart!")
 
+
+
+
+st.write("--- Debugging Data Structure ---")
+st.write(f"Type of target_list: {type(target_list)}")
+st.write(f"First item in list: {target_list[0]}")
+st.stop()
+
 # 2. CART AND DESTINATION SECTION
 if st.session_state.transfer_cart:
     st.subheader("📋 Current Transfer List")
