@@ -20,7 +20,7 @@ if "gs_client" not in st.session_state:
     st.session_state.gs_client = gspread.authorize(creds)
 
 # ---------------- PAGE CONFIG ----------------
-st.set_page_config(layout="wide", page_title="BART Staff Dashboard")
+st.set_page_config(layout="wide", page_title="GLOR Staff Dashboard")
 
 SESSION_TIMEOUT = 30 * 60
 
@@ -58,7 +58,7 @@ st.markdown("""
     text-align: center;
     margin-bottom: 20px;
 ">
-<h1 style='color:white; margin:0;'>BART Staff Dashboard</h1>
+<h1 style='color:white; margin:0;'>GLOR Staff Dashboard</h1>
 <p style='color:#e0e0e0; margin:0;'>Select Branch & Access Operations</p>
 </div>
 """, unsafe_allow_html=True)
