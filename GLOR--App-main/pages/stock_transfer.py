@@ -86,8 +86,8 @@ with st.expander("➕ Add Items to Transfer", expanded=True):
     st.write(f"Type of target_list: {type(target_list)}")
     st.write(f"First item in list: {target_list[0]}")
     st.stop()
-    item_names = [row['Item'] for row in target_list]
-    selected_item = st.selectbox("Select Item", item_names, key="item_sel")
+    item_names = [row['DAILY ITEM'] for row in target_list]
+    selected_row = next(row for row in target_list if row['DAILY ITEM'] == selected_item)
 
 
 
