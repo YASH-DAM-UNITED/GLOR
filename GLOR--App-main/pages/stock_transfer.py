@@ -85,6 +85,12 @@ with st.expander("➕ Add Items to Transfer", expanded=True):
     
     item_names = [row['Item'] for row in target_list]
     selected_item = st.selectbox("Select Item", item_names, key="item_sel")
+
+
+    st.write("--- Debugging Data Structure ---")
+    st.write(f"Type of target_list: {type(target_list)}")
+    st.write(f"First item in list: {target_list[0]}")
+    st.stop()
     
     selected_row = next(row for row in target_list if row['Item'] == selected_item)
     uom_display = selected_row.get('DATE->  UOM', 'units') 
@@ -101,10 +107,7 @@ with st.expander("➕ Add Items to Transfer", expanded=True):
 
 
 
-st.write("--- Debugging Data Structure ---")
-st.write(f"Type of target_list: {type(target_list)}")
-st.write(f"First item in list: {target_list[0]}")
-st.stop()
+
 
 # 2. CART AND DESTINATION SECTION
 if st.session_state.transfer_cart:
