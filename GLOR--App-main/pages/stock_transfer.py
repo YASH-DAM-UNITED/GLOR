@@ -107,26 +107,26 @@ if "current_stocks" not in st.session_state:
 with st.expander("➕ Add Items to Transfer", expanded=True):
     category = st.radio("Select Item Category", ["Daily Items", "Weekly Items"], horizontal=True, key="cat_radio")
     target_list = st.session_state.current_stocks['daily'] if category == "Daily Items" else st.session_state.current_stocks['weekly']
-    item_names = [list(row.values())[0] for row in target_list]
-    selected_item = st.selectbox("Select Item", item_names, key="item_sel")
-
-
-
     
-    selected_row = next(row for row in target_list if list(row.values())[0] == selected_item)
-    uom_display = selected_row.get('DATE-> UOM', 'units') 
-    
-    col1, col2 = st.columns([3, 1])
-    qty = col1.number_input("Quantity", min_value=1, step=1, key="qty_input")
-    col2.markdown("<br>", unsafe_allow_html=True) 
-    col2.write(f"**{uom_display}**")
-    
-    if st.button("Add to List", key="add_btn"):
-        st.session_state.transfer_cart.append({"item": selected_item, "qty": qty, "uom": uom_display})
-        st.success(f"Added {selected_item} to cart!")
+    # ADDED: Check if list is empty
+    if not target_list:
+        st.warning(f"No items available in {category}.")
+    else:
+        item_names = [list(row.values())[0] for row in target_list]
+        selected_item = st.selectbox("Select Item", item_names, key="item_sel")
 
-
-
+        # Now only perform lookups if target_list actually had items
+        selected_row = next(row for row in target_list if list(row.values())[0] == selected_item)
+        uom_display = selected_row.get('DATE-> UOM', 'units') 
+        
+        col1, col2 = st.columns([3, 1])
+        qty = col1.number_input("Quantity", min_value=1, step=1, key="qty_input")
+        col2.markdown("<br>", unsafe_allow_html=True) 
+        col2.write(f"**{uom_display}**")
+        
+        if st.button("Add to List", key="add_btn"):
+            st.session_state.transfer_cart.append({"item": selected_item, "qty": qty, "uom": uom_display})
+            st.success(f"Added {selected_item} to cart!")
 
 
 
