@@ -96,7 +96,7 @@ for k, v in defaults.items():
 # Load the Branch Map so "Reject" logic knows where to send stock back
 if "branch_map" not in st.session_state:
     master_sh = st.session_state.gs_client.open("MASTERBRANCHSHEET")
-    branch_ws = master_sh.worksheet("Branches")
+    branch_ws = master_sh.worksheet("Sheet1")
     data = branch_ws.get_all_values()[1:]
     st.session_state.branch_map = {row[0]: row[1] for row in data}
 
