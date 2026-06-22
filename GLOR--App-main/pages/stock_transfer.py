@@ -20,6 +20,8 @@ import threading
 # ========================================================
 
 client_lock = threading.Lock()
+def disable_button():
+    st.session_state.is_submitting = True
 
 def get_gs_client():
     """
@@ -116,6 +118,9 @@ if "branch_map" not in st.session_state:
 # ========================================================
 
 st.set_page_config(page_title="Stock Transfer", layout="centered")
+# Add this near your other session_state initializations
+if "is_submitting" not in st.session_state:
+    st.session_state.is_submitting = False
 
 # ========================================================
 # DIALOG DEFINITION
@@ -171,6 +176,13 @@ def prepare_batch_updates(ws, cart, mode="subtract"):
 
 st.title("🚚 Internal Stock Transfer")
 
+# Place this inside your error handling block (where the stock is insufficient)
+if st.button("🔄 Refresh"):
+    st.session_state.is_submitting = False
+    
+    
+    
+
 if "transfer_cart" not in st.session_state:
     st.session_state.transfer_cart = []
 
@@ -198,7 +210,7 @@ with st.expander("➕ Add Items to Transfer", expanded=True):
 
         # Now only perform lookups if target_list actually had items
         selected_row = next(row for row in target_list if list(row.values())[0] == selected_item)
-        uom_display = selected_row.get('DATE-> UOM', 'units') 
+        uom_display = selected_row.get('DATE->  UOM', 'units') 
         
         col1, col2 = st.columns([3, 1])
         qty = col1.number_input("Quantity", min_value=1, step=1, key="qty_input")
@@ -208,10 +220,14 @@ with st.expander("➕ Add Items to Transfer", expanded=True):
         if st.button("Add to List", key="add_btn"):
             st.session_state.transfer_cart.append({"item": selected_item, "qty": qty, "uom": uom_display})
             st.success(f"Added {selected_item} to cart!")
-
 # ========================================================
 # CART AND DESTINATION SECTION
 # ========================================================
+
+
+
+    
+        
 
 if st.session_state.transfer_cart:
     st.subheader("📋 Current Transfer List")
@@ -221,101 +237,109 @@ if st.session_state.transfer_cart:
         col2.write(f"{entry['qty']} {entry['uom']}")
         if col3.button("Remove", key=f"del_{i}"):
             st.session_state.transfer_cart.pop(i)
+            
             st.rerun()
 
     st.markdown("---")
     st.subheader("📦 Finalize Transfer")
-    destination = st.selectbox("Select Destination Branch", st.session_state.branch_list, key="dest_sel")
+    
+    # 1. Select destination (index=None forces user interaction)
+    destination = st.selectbox(
+        "Select Destination Branch", 
+        options=st.session_state.branch_list, 
+        index=None, 
+        placeholder="Choose a branch...",
+        key="dest_sel"
+    )
+    
     reason = st.text_area("Reason for Transfer", key="reason_input")
-    
-if st.button("Confirm and Send All", key="confirm_btn"):
-    jeddah_time = datetime.now() + timedelta(hours=3)
-    transfer_id = f"TR-{jeddah_time.strftime('%Y%m%d')}-{''.join(random.choices(string.ascii_uppercase + string.digits, k=4))}"
-    origin_branch_raw = st.session_state.selected_branch
-    
-    origin_id = origin_branch_raw.split(" - ")[0]
-    dest_id = str(destination).split(" - ")[0]
 
-    try:
-        # Get client with automatic round-robin rotation
-        client = get_gs_client()
         
-        origin_key = st.session_state.branch_map.get(origin_id)
-        dest_key = st.session_state.branch_map.get(dest_id)
         
-        if not origin_key or not dest_key:
-            st.error("Branch ID not found in mapping table.")
-        else:
-            try:
-                sh_origin = client.open_by_key(origin_key)
-                sh_dest = client.open_by_key(dest_key)
-            except Exception as e:
-                st.error(f"Failed to open sheets: {e}")
-                st.stop()
+    
+    
+    # 2. Only show the confirmation button if a destination is selected
+    if destination:
+        if st.button("Confirm and Send All", key="confirm_btn", on_click=disable_button, disabled=st.session_state.is_submitting):
             
-            ws_origin = sh_origin.worksheet("Stocks")
             
-            # --- PRE-VALIDATION CHECK ---
-# --- PRE-VALIDATION CHECK ---
-            try:
-                all_origin_data = ws_origin.get_all_values()
-                origin_items = [row[0] for row in all_origin_data]
-                
-                # Calculate column index for yesterday's date
-                # Ensure the format '%Y-%m-%d' matches exactly what is in your Sheet headers
-                target_date = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
-                headers = all_origin_data[0]
-                
-                if target_date not in headers:
-                    st.error(f"❌ Could not find column for yesterday's date: {target_date} in the Origin sheet.")
-                    st.stop()
-                    
-                col_index = headers.index(target_date)
-                
-                insufficient_items = []
-                for entry in st.session_state.transfer_cart:
-                    if entry['item'] in origin_items:
-                        row_idx = origin_items.index(entry['item'])
-                        current_stock = int(float(all_origin_data[row_idx][col_index] or 0))
-                        if int(entry['qty']) > current_stock:
-                            insufficient_items.append(f"• **{entry['item']}**: Available {current_stock}, Requested {entry['qty']}")
+            jeddah_time = datetime.now() + timedelta(hours=3)
+            transfer_id = f"TR-{jeddah_time.strftime('%Y%m%d')}-{''.join(random.choices(string.ascii_uppercase + string.digits, k=4))}"
+            origin_branch_raw = st.session_state.selected_branch
+            
+            origin_id = origin_branch_raw.split(" - ")[0]
+            dest_id = str(destination).split(" - ")[0]
 
-                if insufficient_items:
-                    st.error("❌ **INSUFFICIENT STOCK**")
-                    for error_msg in insufficient_items:
-                        st.write(error_msg)
-                    st.stop()
-            except Exception as e:
-                st.error(f"Error validating stock: {e}")
-                st.stop()
-            # ----------------------------
-            
-            # ----------------------------
-            
-            ws_dest = sh_dest.worksheet("Stocks")
-            
-            res_sub = prepare_batch_updates(ws_origin, st.session_state.transfer_cart, "subtract")
-            res_add = prepare_batch_updates(ws_dest, st.session_state.transfer_cart, "add")
-            
-            if res_sub == "Success" and res_add == "Success":
-                try:
-                    transfer_sheet = client.open("MASTERBRANCHSHEET").worksheet("Transfers")
-                    transfer_sheet.append_row([
-                        transfer_id, origin_branch_raw, str(destination), 
-                        "\n".join([f"• {e['item']} ({e['qty']} {e['uom']})" for e in st.session_state.transfer_cart]), 
-                        "\n".join([str(e['qty']) for e in st.session_state.transfer_cart]), 
-                        reason, "Pending", jeddah_time.strftime("%Y-%m-%d %I:%M:%S %p")
-                    ])
-                    
-                    st.session_state.transfer_cart = []
-                    success_dialog(f"Transfer successful! ID: {transfer_id}")
-                except Exception as e:
-                    st.error(f"Transfer recorded but failed to log: {e}")
-            else:
-                st.error(f"Transfer Failed: Origin({res_sub}) | Destination({res_add})")
+            try:
+                client = get_gs_client()
+                origin_key = st.session_state.branch_map.get(origin_id)
+                dest_key = st.session_state.branch_map.get(dest_id)
                 
-    except Exception as e:
-        st.error(f"Critical Error: {e}")
+                if not origin_key or not dest_key:
+                    st.error("Branch ID not found in mapping table.")
+                else:
+                    sh_origin = client.open_by_key(origin_key)
+                    sh_dest = client.open_by_key(dest_key)
+                    ws_origin = sh_origin.worksheet("Stocks")
+                    
+                    # --- PRE-VALIDATION CHECK ---
+                    all_origin_data = ws_origin.get_all_values()
+                    origin_items = [row[0] for row in all_origin_data]
+                    target_date = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+                    headers = all_origin_data[0]
+                    
+                    if target_date not in headers:
+                        st.error(f"❌ Could not find column for yesterday's date: {target_date}")
+                        st.stop()
+                        
+                    col_index = headers.index(target_date)
+                    insufficient_items = []
+                    for entry in st.session_state.transfer_cart:
+                        if entry['item'] in origin_items:
+                            row_idx = origin_items.index(entry['item'])
+                            current_stock = int(float(all_origin_data[row_idx][col_index] or 0))
+                            if int(entry['qty']) > current_stock:
+                                insufficient_items.append(f"• **{entry['item']}**: Available {current_stock}, Requested {entry['qty']}")
+
+                    if insufficient_items:
+                        st.error("❌ **INSUFFICIENT STOCK**")
+                        for error_msg in insufficient_items:
+                            
+                            st.write(error_msg)
+                            
+                            
+                            
+                        st.stop()
+                    
+                    # --- EXECUTE TRANSFER ---
+                    ws_dest = sh_dest.worksheet("Stocks")
+                    res_sub = prepare_batch_updates(ws_origin, st.session_state.transfer_cart, "subtract")
+                    res_add = prepare_batch_updates(ws_dest, st.session_state.transfer_cart, "add")
+                    
+                    if res_sub == "Success" and res_add == "Success":
+
+                        transfer_sheet = client.open("MASTERBRANCHSHEET").worksheet("Transfers")
+                        transfer_sheet.append_row([
+                            transfer_id, origin_branch_raw, str(destination), 
+                            "\n".join([f"• {e['item']} ({e['qty']} {e['uom']})" for e in st.session_state.transfer_cart]), 
+                            "\n".join([str(e['qty']) for e in st.session_state.transfer_cart]), 
+                            reason, "Pending", jeddah_time.strftime("%Y-%m-%d %I:%M:%S %p")
+                        ])
+                        st.session_state.transfer_cart = []
+                         
+                        st.session_state.transfer_cart = []
+                       
+                        success_dialog(f"Transfer successful! ID: {transfer_id}")
+                        st.session_state.is_submitting = False
+                        
+                    else:
+                        st.error(f"Transfer Failed: Origin({res_sub}) | Destination({res_add})")
+            except Exception as e:
+                st.error(f"Critical Error: {e}")
+    else:
+        st.info("Please select a destination branch to finalize the transfer.")
+else:
+    st.info("Add items to your cart to proceed with the transfer.")
 
 st.markdown("---")
 if st.button("⬅ Back to Dashboard"):
