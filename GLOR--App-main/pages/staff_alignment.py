@@ -18,6 +18,14 @@ st.set_page_config(
 )
 
 # --- CONFIGURATION & STATE ---
+
+
+
+# --- INITIALIZATION ---
+if "start_min" not in st.session_state:
+    st.session_state.start_min = 0  # 12:00 AM
+if "end_min" not in st.session_state:
+    st.session_state.end_min = 1439  # 11:59 PM
 if "data_refresh_token" not in st.session_state:
     st.session_state.data_refresh_token = 0
 
@@ -133,24 +141,43 @@ with col3:
 
 # --- CUSTOM RANGE UI ---
 st.markdown("### 🕒 Analyze Schedule for Custom Time Range")
-if "start_time_str" not in st.session_state: st.session_state.start_time_str = "00:00"
-if "end_time_str" not in st.session_state: st.session_state.end_time_str = "23:59"
-if "start_min" not in st.session_state: st.session_state.start_min = 0
-if "end_min" not in st.session_state: st.session_state.end_min = 1439
 
-r_col1, r_col2, r_col3 = st.columns([2, 2, 1], vertical_alignment="bottom")
-with r_col1:
-    start_input = st.text_input("From (HH:MM)", value=st.session_state.start_time_str)
-with r_col2:
-    end_input = st.text_input("To (HH:MM)", value=st.session_state.end_time_str)
-with r_col3:
-    if st.button("🚀 Calculate Range", use_container_width=True):
-        if re.match(r"^([01]?[0-9]|2[0-3]):([0-5][0-9])$", start_input) and re.match(r"^([01]?[0-9]|2[0-3]):([0-5][0-9])$", end_input):
-            st.session_state.start_time_str, st.session_state.end_time_str = start_input, end_input
-            h1, m1 = map(int, start_input.split(":")); h2, m2 = map(int, end_input.split(":"))
-            st.session_state.start_min = h1 * 60 + m1; st.session_state.end_min = h2 * 60 + m2
-            st.rerun()
-        else: st.error("Invalid format! Use HH:MM")
+if "start_time_str" not in st.session_state: st.session_state.start_time_str = "12:00 AM"
+if "end_time_str" not in st.session_state: st.session_state.end_time_str = "11:59 PM"
+
+# 1. Use vertical_alignment="bottom" to align items across the row
+col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1, 1], vertical_alignment="bottom")
+
+with col1:
+    start_val = st.text_input("Start Time", value="12:00", key="s_val")
+with col2:
+    start_period = st.selectbox("AM/PM", ["AM", "PM"], key="s_per")
+with col3:
+    end_val = st.text_input("End Time", value="11:59", key="e_val")
+with col4:
+    end_period = st.selectbox("AM/PM", ["PM", "AM"], key="e_per")
+
+with col5:
+    if st.button(" Calculate", use_container_width=True):
+        def to_min(t_str, period):
+            h, m = map(int, t_str.split(":"))
+            h = 12 if h == 12 else h
+            if period == "PM": h += 12
+            return (h * 60) + m
+
+        st.session_state.start_min = to_min(start_val, start_period)
+        st.session_state.end_min = to_min(end_val, end_period)
+        st.session_state.start_time_str = f"{start_val} {start_period}"
+        st.session_state.end_time_str = f"{end_val} {end_period}"
+        st.rerun()
+
+# Ensure variables exist for the subheader
+start_input = st.session_state.start_time_str
+end_input = st.session_state.end_time_str
+
+# These ensure the variables exist for the rest of your app logic
+start_input = st.session_state.start_time_str
+end_input = st.session_state.end_time_str
 
 # --- CORE CALCULATION ---
 df_work = df_full.copy()
