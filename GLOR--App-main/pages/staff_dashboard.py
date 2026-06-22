@@ -303,20 +303,31 @@ def prepare_batch_updates(ws, cart, mode="subtract"):
         return f"Error: {str(e)}"
 
 def check_for_pending_transfers():
-    """Check pending transfers with error handling"""
+    """Check pending transfers with robust empty-data handling"""
     try:
         client = get_gs_client()
         sheet = client.open("MASTERBRANCHSHEET").worksheet("Transfers")
+        
+        # Fetch all values first to check if there is data
+        all_values = sheet.get_all_values()
+        
+        # Check if sheet is empty or only contains headers (need at least 2 rows)
+        if len(all_values) < 2:
+            return # No data to process
+            
+        # If data exists, then use get_all_records
         records = sheet.get_all_records()
         my_branch = st.session_state.selected_branch
         
         # Filter for pending transfers where current branch is the destination
-        pending = [r for r in records if r['Destination'] == my_branch and r['Status'] == 'Pending']
+        pending = [r for r in records if r.get('Destination') == my_branch and r.get('Status') == 'Pending']
         
         for transfer in pending:
             show_transfer_dialog(transfer)
+            
     except Exception as e:
-        st.error(f"Error checking transfers: {e}")
+        # Avoid printing the full Response object which is often confusing
+        st.error(f"Error checking transfers: Please ensure the 'Transfers' sheet is formatted correctly.")
 
 # ========================================================
 # ACTIVITY MANAGEMENT
