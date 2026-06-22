@@ -411,7 +411,7 @@ else:
     if st.button("🔄 Refresh Data"):
         st.session_state.refresh_trigger += 1
         st.rerun()
-        st.rerun()
+        
 
     
 
