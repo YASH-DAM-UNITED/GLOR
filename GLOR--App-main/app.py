@@ -64,9 +64,11 @@ st.markdown("""<style>
 
 
 /* Force all Streamlit components to have a white background */
-.stApp, .stAppHeader, .stMainBlockContainer, [data-testid="stAppViewContainer"] {
-    background-color: #FFFFFF !important;
-    background: #FFFFFF !important;
+.stApp, 
+[data-testid="stAppViewContainer"], 
+[data-testid="stMainBlockContainer"] { 
+    background-color: #FFFFFF !important; 
+    background: #FFFFFF !important; 
 }
 
 /* Force text colors to stay dark */
@@ -85,9 +87,6 @@ h1, h2, h3, h4, h5, h6, p, span, div {
     background-color: #FFFFFF !important;
     color: #1E293B !important;
 }
-/* Transparencies */
-.stApp, [data-testid="stAppViewContainer"], [data-testid="stMainBlockContainer"] { background: transparent !important; }
-h1 { margin-bottom: 0px !important; }
 
 /* =========================================================
    DESKTOP MASTER STYLES (Your Original Looks)
@@ -124,13 +123,13 @@ h1 { margin-bottom: 0px !important; }
 
 /* Background & Orbits */
 .background-layer { 
-    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -9999; 
-    overflow: hidden; background-color: #F8FAFC; 
-    display: flex; justify-content: center; align-items: center;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 400'%3E%3Cpath fill='%23CBD5E1' d='M100 100c50 0 50 50 100 50s50-50 100-50 50 50 100 50 50-50 100-50 50 50 100 50 50-50 100-50 50 50 100 50'/%3E%3C/svg%3E");
-    background-size: cover;
-    background-position: center;
-    opacity: 0.6; 
+    position: fixed; 
+    top: 0; 
+    left: 0; 
+    width: 100vw; 
+    height: 100vh; 
+    z-index: -9999; 
+    background-color: #FFFFFF !important; /* Force this to be white */
 }
 .orbit { position: absolute; border: 1px solid rgba(0, 0, 0, 0.2); border-radius: 50%; animation: spin linear infinite; left: 50%; top: 50%; transform: translate(-50%, -50%); }
 .o1 { width: 200px; height: 200px; animation-duration: 20s; }
