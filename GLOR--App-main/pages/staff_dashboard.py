@@ -148,24 +148,26 @@ for k, v in defaults.items():
         st.session_state[k] = v
 
 
-# Replace your current branch_map loading logic with this:
 if "branch_map" not in st.session_state:
     try:
         client = get_gs_client()
         master_sh = client.open("MASTERBRANCHSHEET")
         branch_ws = master_sh.worksheet("Branches")
         
-        # Explicitly fetch the data
+        # 1. Fetch data
         all_data = branch_ws.get_all_values()
         
-        # Validate that we actually got data (not just a response header)
-        if len(all_data) > 1:
+        # 2. Add this type-check: 
+        # Only proceed if we actually got a list back.
+        if isinstance(all_data, list) and len(all_data) > 1:
             st.session_state.branch_map = {row[0]: row[1] for row in all_data[1:] if len(row) >= 2}
         else:
-            st.warning("Branch sheet is empty or has no header.")
+            # If it's a Response object or empty, don't crash, just log it
+            st.warning("Branch data format error or empty sheet.")
             st.session_state.branch_map = {}
             
     except Exception as e:
+        # This will now only show if something truly breaks
         st.error(f"Error loading branch map: {e}")
         st.session_state.branch_map = {}
 # ========================================================
