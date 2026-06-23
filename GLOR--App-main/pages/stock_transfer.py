@@ -334,7 +334,7 @@ if st.session_state.transfer_cart:
                     else:
                         st.error(f"Transfer Failed: Origin({res_sub}) | Destination({res_add})")
             except Exception as e:
-                st.error(f"Critical Error: {e}")
+                st.error(f"Error type: {type(e).__name__}, Details: {str(e)}")
     else:
         st.info("Please select a destination branch to finalize the transfer.")
 else:
