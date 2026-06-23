@@ -301,17 +301,24 @@ def prepare_batch_updates(ws, cart, mode="subtract"):
     except Exception as e:
         st.error(f"Error in batch update: {e}")
         return f"Error: {str(e)}"
-
 def check_for_pending_transfers():
-    """Check pending transfers with error handling"""
     try:
         client = get_gs_client()
         sheet = client.open("MASTERBRANCHSHEET").worksheet("Transfers")
+        
+        # Check if sheet is empty first
+        all_values = sheet.get_all_values()
+        if not all_values or len(all_values) < 2:
+            st.warning("Transfers sheet is empty or lacks header/data rows.")
+            return
+
         records = sheet.get_all_records()
         my_branch = st.session_state.selected_branch
         
-        # Filter for pending transfers where current branch is the destination
-        pending = [r for r in records if r['Destination'] == my_branch and r['Status'] == 'Pending']
+        # Debugging step: print keys to verify they match your code
+        # st.write(records[0].keys()) 
+        
+        pending = [r for r in records if r.get('Destination') == my_branch and r.get('Status') == 'Pending']
         
         for transfer in pending:
             show_transfer_dialog(transfer)
