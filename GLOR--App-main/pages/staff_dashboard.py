@@ -306,24 +306,46 @@ def check_for_pending_transfers():
         client = get_gs_client()
         sheet = client.open("MASTERBRANCHSHEET").worksheet("Transfers")
         
-        # Check if sheet is empty first
-        all_values = sheet.get_all_values()
-        if not all_values or len(all_values) < 2:
-            st.warning("Transfers sheet is empty or lacks header/data rows.")
+        # Get raw data (list of lists)
+        rows = sheet.get_all_values()
+        
+        if len(rows) < 2:
+            return # Sheet is empty or just has headers
+
+        # Map headers manually
+        headers = rows[0]
+        data = rows[1:]
+        
+        # Helper to find column index
+        def get_col(name):
+            return headers.index(name) if name in headers else -1
+
+        dest_idx = get_col("Destination")
+        status_idx = get_col("Status")
+        
+        if dest_idx == -1 or status_idx == -1:
+            st.error("Header mismatch! Check if 'Destination' or 'Status' exists in Row 1.")
             return
 
-        records = sheet.get_all_records()
+        # Filter manually
         my_branch = st.session_state.selected_branch
-        
-        # Debugging step: print keys to verify they match your code
-        # st.write(records[0].keys()) 
-        
-        pending = [r for r in records if r.get('Destination') == my_branch and r.get('Status') == 'Pending']
-        
-        for transfer in pending:
-            show_transfer_dialog(transfer)
+        for row in data:
+            if len(row) > max(dest_idx, status_idx):
+                if row[dest_idx] == my_branch and row[status_idx] == 'Pending':
+                    # Manually construct the dict for the dialog
+                    transfer = {
+                        "ID": row[0],
+                        "Origin": row[1],
+                        "Destination": row[dest_idx],
+                        "Items": row[3],
+                        "Quantities": row[4],
+                        "Reason": row[5],
+                        "Status": row[status_idx]
+                    }
+                    show_transfer_dialog(transfer)
+                    
     except Exception as e:
-        st.error(f"Error checking transfers: {e}")
+        st.error(f"Manual fetch error: {e}")
 
 # ========================================================
 # ACTIVITY MANAGEMENT
