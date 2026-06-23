@@ -252,7 +252,7 @@ if st.session_state.transfer_cart:
         key="dest_sel"
     )
     
-    reason = st.text_area("Reason for Transfer", key="reason_input")
+    reason = st.text_area("Reason for Transfer", key="reason_input", placeholder="Must input Time ")
 
         
         
