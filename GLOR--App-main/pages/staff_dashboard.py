@@ -148,28 +148,19 @@ for k, v in defaults.items():
         st.session_state[k] = v
 
 
+# Load the Branch Map so "Reject" logic knows where to send stock back
 if "branch_map" not in st.session_state:
     try:
         client = get_gs_client()
         master_sh = client.open("MASTERBRANCHSHEET")
         branch_ws = master_sh.worksheet("Branches")
-        
-        # 1. Fetch data
-        all_data = branch_ws.get_all_values()
-        
-        # 2. Add this type-check: 
-        # Only proceed if we actually got a list back.
-        if isinstance(all_data, list) and len(all_data) > 1:
-            st.session_state.branch_map = {row[0]: row[1] for row in all_data[1:] if len(row) >= 2}
-        else:
-            # If it's a Response object or empty, don't crash, just log it
-            st.warning("Branch data format error or empty sheet.")
-            st.session_state.branch_map = {}
-            
+        data = branch_ws.get_all_values()[1:]
+        st.session_state.branch_map = {row[0]: row[1] for row in data}
     except Exception as e:
-        # This will now only show if something truly breaks
         st.error(f"Error loading branch map: {e}")
         st.session_state.branch_map = {}
+
+
 # ========================================================
 # HELPER FUNCTIONS FOR NOTIFICATIONS
 # ========================================================
