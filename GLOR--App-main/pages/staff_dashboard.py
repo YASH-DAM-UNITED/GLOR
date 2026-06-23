@@ -65,7 +65,7 @@ if "gs_client" not in st.session_state:
 # PAGE CONFIG
 # ========================================================
 
-st.set_page_config(layout="wide", page_title="GLOR Staff Dashboard")
+st.set_page_config(layout="wide", page_title=" Staff Dashboard")
 
 SESSION_TIMEOUT = 30 * 60
 
@@ -109,7 +109,7 @@ st.markdown("""
     text-align: center;
     margin-bottom: 20px;
 ">
-<h1 style='color:white; margin:0;'>GLOR Staff Dashboard</h1>
+<h1 style='color:white; margin:0;'> Staff Dashboard</h1>
 <p style='color:#e0e0e0; margin:0;'>Select Branch & Access Operations</p>
 </div>
 """, unsafe_allow_html=True)
@@ -148,25 +148,19 @@ for k, v in defaults.items():
         st.session_state[k] = v
 
 
+# Load the Branch Map so "Reject" logic knows where to send stock back
 if "branch_map" not in st.session_state:
     try:
         client = get_gs_client()
         master_sh = client.open("MASTERBRANCHSHEET")
         branch_ws = master_sh.worksheet("Branches")
-        
-        # Get all data and check for length
-        data = branch_ws.get_all_values()
-        
-        if len(data) > 1:
-            # Skip header row and build map
-            st.session_state.branch_map = {row[0]: row[1] for row in data[1:] if len(row) >= 2}
-        else:
-            st.error("The 'Branches' worksheet is empty or missing data.")
-            st.session_state.branch_map = {}
-            
+        data = branch_ws.get_all_values()[1:]
+        st.session_state.branch_map = {row[0]: row[1] for row in data}
     except Exception as e:
         st.error(f"Error loading branch map: {e}")
         st.session_state.branch_map = {}
+
+
 # ========================================================
 # HELPER FUNCTIONS FOR NOTIFICATIONS
 # ========================================================
@@ -309,31 +303,20 @@ def prepare_batch_updates(ws, cart, mode="subtract"):
         return f"Error: {str(e)}"
 
 def check_for_pending_transfers():
-    """Check pending transfers with robust empty-data handling"""
+    """Check pending transfers with error handling"""
     try:
         client = get_gs_client()
         sheet = client.open("MASTERBRANCHSHEET").worksheet("Transfers")
-        
-        # Fetch all values first to check if there is data
-        all_values = sheet.get_all_values()
-        
-        # Check if sheet is empty or only contains headers (need at least 2 rows)
-        if len(all_values) < 2:
-            return # No data to process
-            
-        # If data exists, then use get_all_records
         records = sheet.get_all_records()
         my_branch = st.session_state.selected_branch
         
         # Filter for pending transfers where current branch is the destination
-        pending = [r for r in records if r.get('Destination') == my_branch and r.get('Status') == 'Pending']
+        pending = [r for r in records if r['Destination'] == my_branch and r['Status'] == 'Pending']
         
         for transfer in pending:
             show_transfer_dialog(transfer)
-            
     except Exception as e:
-        # Avoid printing the full Response object which is often confusing
-        st.error(f"Error checking transfers: Please ensure the 'Transfers' sheet is formatted correctly.")
+        st.error(f"Error checking transfers: {e}")
 
 # ========================================================
 # ACTIVITY MANAGEMENT
