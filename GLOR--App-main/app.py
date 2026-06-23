@@ -59,6 +59,32 @@ st.markdown("""<style>
 [data-testid="stSidebar"], [data-testid="collapsedControl"] { display: none !important; visibility: hidden !important; }
 #MainMenu, footer, header { visibility: hidden; }
 
+
+
+
+
+/* Force all Streamlit components to have a white background */
+.stApp, .stAppHeader, .stMainBlockContainer, [data-testid="stAppViewContainer"] {
+    background-color: #FFFFFF !important;
+    background: #FFFFFF !important;
+}
+
+/* Force text colors to stay dark */
+h1, h2, h3, h4, h5, h6, p, span, div {
+    color: #111111 !important;
+}
+
+/* Force Input Fields and Containers to remain white */
+[data-testid="stWidgetView"], .stTextInput > div > div > input {
+    background-color: #FFFFFF !important;
+    color: #000000 !important;
+}
+
+/* Ensure your custom card remains white in dark mode */
+.card-content {
+    background-color: #FFFFFF !important;
+    color: #1E293B !important;
+}
 /* Transparencies */
 .stApp, [data-testid="stAppViewContainer"], [data-testid="stMainBlockContainer"] { background: transparent !important; }
 h1 { margin-bottom: 0px !important; }
