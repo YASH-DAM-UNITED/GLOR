@@ -148,19 +148,26 @@ for k, v in defaults.items():
         st.session_state[k] = v
 
 
-# Load the Branch Map so "Reject" logic knows where to send stock back
+# Replace your current branch_map loading logic with this:
 if "branch_map" not in st.session_state:
     try:
         client = get_gs_client()
         master_sh = client.open("MASTERBRANCHSHEET")
         branch_ws = master_sh.worksheet("Branches")
-        data = branch_ws.get_all_values()[1:]
-        st.session_state.branch_map = {row[0]: row[1] for row in data}
+        
+        # Explicitly fetch the data
+        all_data = branch_ws.get_all_values()
+        
+        # Validate that we actually got data (not just a response header)
+        if len(all_data) > 1:
+            st.session_state.branch_map = {row[0]: row[1] for row in all_data[1:] if len(row) >= 2}
+        else:
+            st.warning("Branch sheet is empty or has no header.")
+            st.session_state.branch_map = {}
+            
     except Exception as e:
         st.error(f"Error loading branch map: {e}")
         st.session_state.branch_map = {}
-
-
 # ========================================================
 # HELPER FUNCTIONS FOR NOTIFICATIONS
 # ========================================================
